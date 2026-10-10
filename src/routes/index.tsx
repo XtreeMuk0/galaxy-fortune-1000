@@ -60,7 +60,7 @@ function Game() {
   const [error, setError] = useState<string | null>(null);
   const [showPay, setShowPay] = useState(false);
   const [showHist, setShowHist] = useState(false);
-  const bet = BET_LEVELS[betIdx];
+  const bet = BET_LEVELS[betIdx]!;
   const autoRef = useRef(auto);
   autoRef.current = auto;
 
@@ -77,7 +77,7 @@ function Game() {
     await sleep(450);
     for (let r = 0; r < REELS; r++) {
       await sleep(r === REELS - 1 && step.scatterCount >= 2 ? 900 : 180);
-      setGrid((g) => g.map((col, i) => (i === r ? step.grid[r] : col)));
+      setGrid((g) => g.map((col, i) => (i === r ? step.grid[r]! : col)));
       setSpinning((s) => s.map((v, i) => (i === r ? false : v)));
     }
     const pos = new Set<string>();
@@ -108,8 +108,8 @@ function Game() {
         let acc = round.base.win;
         for (let i = 0; i < round.freeSpins.length; i++) {
           setFs({ left: round.freeSpins.length - i - 1, total: round.freeSpins.length, win: acc });
-          await animateStep(round.freeSpins[i]);
-          acc += round.freeSpins[i].win; setLastWin(+acc.toFixed(2));
+          await animateStep(round.freeSpins[i]!);
+          acc += round.freeSpins[i]!.win; setLastWin(+acc.toFixed(2));
           setFs({ left: round.freeSpins.length - i - 1, total: round.freeSpins.length, win: acc });
         }
         setFs(null);
@@ -130,6 +130,7 @@ function Game() {
       const t = setTimeout(() => { if (autoRef.current > 0) { setAuto((a) => a - 1); spin(); } }, 400);
       return () => clearTimeout(t);
     }
+    return undefined;
   }, [auto, busy, spin]);
 
   useEffect(() => {
@@ -256,7 +257,7 @@ function Paytable({ open, onOpenChange, bet, fmt }: { open: boolean; onOpenChang
             <div key={s} className="flex items-center gap-2 rounded-xl border border-border bg-muted p-2">
               <div className="h-14 w-14 shrink-0"><SlotSymbol id={s} /></div>
               <div className="text-xs">
-                {[5, 4, 3].map((n) => <p key={n}><span className="text-muted-foreground">{n}×</span> {fmt(p[n - 3] * lineBet)}</p>)}
+                {[5, 4, 3].map((n) => <p key={n}><span className="text-muted-foreground">{n}×</span> {fmt(p[n - 3]! * lineBet)}</p>)}
               </div>
             </div>
           ))}
@@ -265,7 +266,7 @@ function Paytable({ open, onOpenChange, bet, fmt }: { open: boolean; onOpenChang
           <div className="h-16 w-16 shrink-0"><SlotSymbol id="SCATTER" /></div>
           <div className="text-sm">
             <p className="font-bold">{SYMBOL_NAME.SCATTER} — paga en cualquier posición</p>
-            {[5, 4, 3].map((n) => <p key={n}>{n}× → {fmt(SCATTER_PAY[n] * bet)} + {FREE_SPINS[n]} giros gratis</p>)}
+            {[5, 4, 3].map((n) => <p key={n}>{n}× → {fmt(SCATTER_PAY[n]! * bet)} + {FREE_SPINS[n]} giros gratis</p>)}
             <p className="text-muted-foreground">Todos los premios de giros gratis x{FREE_SPIN_MULTIPLIER}. Se pueden reactivar.</p>
           </div>
         </div>
