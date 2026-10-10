@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as IntegracionRouteImport } from './routes/integracion'
 import { Route as ApiPublicV1BalanceRouteImport } from './routes/api/public/v1/balance'
 import { Route as ApiPublicV1SpinRouteImport } from './routes/api/public/v1/spin'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntegracionRoute = IntegracionRouteImport.update({
+  id: '/integracion',
+  path: '/integracion',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicV1BalanceRoute = ApiPublicV1BalanceRouteImport.update({
@@ -31,30 +37,40 @@ const ApiPublicV1SpinRoute = ApiPublicV1SpinRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/integracion': typeof IntegracionRoute
   '/api/public/v1/balance': typeof ApiPublicV1BalanceRoute
   '/api/public/v1/spin': typeof ApiPublicV1SpinRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/integracion': typeof IntegracionRoute
   '/api/public/v1/balance': typeof ApiPublicV1BalanceRoute
   '/api/public/v1/spin': typeof ApiPublicV1SpinRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/integracion': typeof IntegracionRoute
   '/api/public/v1/balance': typeof ApiPublicV1BalanceRoute
   '/api/public/v1/spin': typeof ApiPublicV1SpinRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/public/v1/balance' | '/api/public/v1/spin'
+  fullPaths:
+    '/' | '/integracion' | '/api/public/v1/balance' | '/api/public/v1/spin'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/v1/balance' | '/api/public/v1/spin'
-  id: '__root__' | '/' | '/api/public/v1/balance' | '/api/public/v1/spin'
+  to: '/' | '/integracion' | '/api/public/v1/balance' | '/api/public/v1/spin'
+  id:
+    | '__root__'
+    | '/'
+    | '/integracion'
+    | '/api/public/v1/balance'
+    | '/api/public/v1/spin'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  IntegracionRoute: typeof IntegracionRoute
   ApiPublicV1BalanceRoute: typeof ApiPublicV1BalanceRoute
   ApiPublicV1SpinRoute: typeof ApiPublicV1SpinRoute
 }
@@ -66,6 +82,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integracion': {
+      id: '/integracion'
+      path: '/integracion'
+      fullPath: '/integracion'
+      preLoaderRoute: typeof IntegracionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/v1/balance': {
@@ -87,6 +110,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  IntegracionRoute: IntegracionRoute,
   ApiPublicV1BalanceRoute: ApiPublicV1BalanceRoute,
   ApiPublicV1SpinRoute: ApiPublicV1SpinRoute,
 }
