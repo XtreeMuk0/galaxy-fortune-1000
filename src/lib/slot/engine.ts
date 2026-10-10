@@ -49,7 +49,7 @@ const TOTAL = ENTRIES.reduce((s, [, w]) => s + w, 0);
 function rand(): number {
   const a = new Uint32Array(1);
   globalThis.crypto.getRandomValues(a);
-  return a[0] / 0x100000000;
+  return a[0]! / 0x100000000;
 }
 function pick(): SymbolId {
   let r = rand() * TOTAL;
@@ -74,7 +74,7 @@ function evaluate(grid: Grid, bet: number, multiplier: number): SpinStep {
   const lineBet = bet / LINES;
   const lineWins: LineWin[] = [];
   PAYLINES.forEach((pl, li) => {
-    const syms = pl.map((row, reel) => grid[reel][row]);
+    const syms = pl.map((row, reel) => grid[reel]![row]!);
     if (syms[0] === "SCATTER") return;
     let target: SymbolId | null = null;
     let count = 0;
@@ -90,8 +90,8 @@ function evaluate(grid: Grid, bet: number, multiplier: number): SpinStep {
     for (const s of syms) { if (s === "WILD") wildRun++; else break; }
     const sym = target ?? "WILD";
     const pay = count >= 3 ? PAYTABLE[sym]?.[count - 3] ?? 0 : 0;
-    const wildPay = wildRun >= 3 ? PAYTABLE.WILD![wildRun - 3] : 0;
-    const [finalSym, finalCount, finalPay] = wildPay > pay ? ["WILD" as SymbolId, wildRun, wildPay] : [sym, count, pay];
+    const wildPay = wildRun >= 3 ? PAYTABLE.WILD![wildRun - 3]! : 0;
+    const [finalSym, finalCount, finalPay]: [SymbolId, number, number] = wildPay > pay ? ["WILD" as SymbolId, wildRun, wildPay] : [sym, count, pay];
     if (finalPay > 0) {
       lineWins.push({
         line: li, symbol: finalSym, count: finalCount,

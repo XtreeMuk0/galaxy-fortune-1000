@@ -26,7 +26,7 @@ export const Route = createFileRoute("/")({
 });
 
 const randGrid = (): Grid =>
-  Array.from({ length: REELS }, () => Array.from({ length: ROWS }, () => ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)]));
+  Array.from({ length: REELS }, () => Array.from({ length: ROWS }, () => ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)]!));
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type Launch = Record<"operator" | "player" | "currency" | "session" | "wallet" | "ts" | "sig", string>;
