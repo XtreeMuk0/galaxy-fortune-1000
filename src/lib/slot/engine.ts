@@ -71,7 +71,7 @@ export interface RoundResult {
 
 // ---- Función bonus: orbes multiplicadores (solo en giros gratis) ----
 // Valores ajustados por simulación (scripts/rtp-sim.ts) para controlar el RTP.
-export const TUNING = { PAY_SCALE: 4.1, ORB_CHANCE: 0.2, SUPER_ORB_CHANCE: 0.2, SUPER_X1000_CHANCE: 0.78 }; // ajustado por simulación
+export const TUNING = { PAY_SCALE: 4.0, ORB_CHANCE: 0.2, SUPER_ORB_CHANCE: 0.2, SUPER_X1000_CHANCE: 0.75 }; // ajustado por simulación
 export const ORB_TABLE: [number, number][] = [
   [2, 80], [3, 120], [5, 150], [10, 80], [25, 35], [50, 15], [100, 6], [250, 2], [500, 0.6], [1000, 0.15],
 ];
