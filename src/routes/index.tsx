@@ -7,8 +7,8 @@ import { ALL_SYMBOLS, SYMBOL_NAME } from "@/components/slot/symbols";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
-  BET_LEVELS, PAYTABLE, SCATTER_PAY, FREE_SPINS, FREE_SPIN_MULTIPLIER, REELS, ROWS,
-  type Grid, type RoundResult, type SpinStep, type SymbolId,
+  BET_LEVELS, PAYTABLE, SCATTER_PAY, FREE_SPINS, REELS, ROWS, BUY_COST, ORB_TABLE, MAX_WIN_X,
+  type Grid, type RoundResult, type SpinStep, type SymbolId, type BuyType,
 } from "@/lib/slot/engine";
 
 export const Route = createFileRoute("/")({
@@ -53,6 +53,9 @@ function Game() {
   const [winPos, setWinPos] = useState<Set<string>>(new Set());
   const [lastWin, setLastWin] = useState(0);
   const [fs, setFs] = useState<{ left: number; total: number; win: number } | null>(null);
+  const [orbs, setOrbs] = useState<Map<string, number>>(new Map());
+  const [multi, setMulti] = useState<number | null>(null);
+  const [confirmBuy, setConfirmBuy] = useState<BuyType | null>(null);
   const [banner, setBanner] = useState<{ title: string; amount?: number } | null>(null);
   const [history, setHistory] = useState<RoundResult[]>([]);
   const [busy, setBusy] = useState(false);
@@ -72,7 +75,7 @@ function Game() {
   }, [launch]);
 
   const animateStep = useCallback(async (step: SpinStep) => {
-    setWinPos(new Set());
+    setWinPos(new Set()); setOrbs(new Map()); setMulti(null);
     setSpinning(Array(REELS).fill(true));
     await sleep(450);
     for (let r = 0; r < REELS; r++) {
@@ -83,19 +86,24 @@ function Game() {
     const pos = new Set<string>();
     step.lineWins.forEach((l) => l.positions.forEach(([a, b]) => pos.add(`${a}-${b}`)));
     if (step.scatterWin > 0 || step.freeSpinsAwarded) step.grid.forEach((col, a) => col.forEach((s, b) => s === "SCATTER" && pos.add(`${a}-${b}`)));
-    setWinPos(pos);
+    setOrbs(new Map(step.orbs.map((o) => [`${o.reel}-${o.row}`, o.value])));
+    if (step.orbs.length && step.win > 0) {
+      step.orbs.forEach((o) => pos.add(`${o.reel}-${o.row}`));
+      setWinPos(pos); await sleep(500); setMulti(step.multiplier); await sleep(1200);
+    } else setWinPos(pos);
     if (step.win > 0) await sleep(900);
   }, []);
 
-  const spin = useCallback(async () => {
+  const spin = useCallback(async (buy: BuyType | null = null) => {
     if (busy) return;
-    if (!real && balance < bet) { setError("Saldo insuficiente"); setAuto(0); return; }
+    const cost = +(bet * (buy ? BUY_COST[buy] : 1)).toFixed(2);
+    if (!real && balance < cost) { setError("Saldo insuficiente"); setAuto(0); return; }
     setBusy(true); setError(null); setLastWin(0); setBanner(null);
-    if (!real) setBalance((b) => +(b - bet).toFixed(2));
+    if (!real) setBalance((b) => +(b - cost).toFixed(2));
     try {
       const res = await fetch("/api/public/v1/spin", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: real ? "real" : "demo", bet, launch: launch ?? undefined }),
+        body: JSON.stringify({ mode: real ? "real" : "demo", bet, buy, launch: launch ?? undefined }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error === "insufficient_funds" ? "Saldo insuficiente" : "Error de conexión con el servidor");
@@ -103,7 +111,7 @@ function Game() {
       await animateStep(round.base);
       setLastWin(round.base.win);
       if (round.freeSpins.length) {
-        setBanner({ title: `${round.base.freeSpinsAwarded} GIROS GRATIS` });
+        setBanner({ title: buy === "super" ? `SUPER BONUS · ${round.base.freeSpinsAwarded} GIROS` : `${round.base.freeSpinsAwarded} GIROS GRATIS` });
         await sleep(1800); setBanner(null);
         let acc = round.base.win;
         for (let i = 0; i < round.freeSpins.length; i++) {
@@ -112,14 +120,14 @@ function Game() {
           acc += round.freeSpins[i]!.win; setLastWin(+acc.toFixed(2));
           setFs({ left: round.freeSpins.length - i - 1, total: round.freeSpins.length, win: acc });
         }
-        setFs(null);
+        setFs(null); setMulti(null);
       }
-      if (round.totalWin >= bet * 15) { setBanner({ title: round.totalWin >= bet * 50 ? "MEGA WIN" : "BIG WIN", amount: round.totalWin }); setTimeout(() => setBanner(null), 2600); }
+      if (round.totalWin >= bet * 15) { setBanner({ title: round.capped ? "MAX WIN" : round.totalWin >= bet * 500 ? "GALACTIC WIN" : round.totalWin >= bet * 50 ? "MEGA WIN" : "BIG WIN", amount: round.totalWin }); setTimeout(() => setBanner(null), 2600); }
       if (real) { if (typeof json.balance === "number") setBalance(json.balance); }
       else setBalance((b) => +(b + round.totalWin).toFixed(2));
       setHistory((h) => [round, ...h].slice(0, 100));
     } catch (e) {
-      if (!real) setBalance((b) => +(b + bet).toFixed(2));
+      if (!real) setBalance((b) => +(b + cost).toFixed(2));
       setError((e as Error).message); setAuto(0);
       setSpinning(Array(REELS).fill(false));
     } finally { setBusy(false); }
@@ -157,7 +165,7 @@ function Game() {
           <div className="bg-reel relative rounded-[1.35rem] p-2 sm:p-4">
             {fs && (
               <div className="absolute -top-4 left-1/2 z-10 -translate-x-1/2 rounded-full bg-accent px-5 py-1 font-display text-sm font-bold text-accent-foreground shadow-gold">
-                GIROS GRATIS x{FREE_SPIN_MULTIPLIER} · Quedan {fs.left}
+                GIROS GRATIS · Quedan {fs.left} · Total {fmt(fs.win)}
               </div>
             )}
             <div className="grid grid-cols-5 gap-1.5 sm:gap-3">
@@ -172,7 +180,7 @@ function Game() {
                   ) : (
                     <div className="animate-land grid h-full grid-rows-3">
                       {col.map((s, row) => (
-                        <SlotSymbol key={row} id={s} win={winPos.has(`${r}-${row}`)} className={winPos.size && !winPos.has(`${r}-${row}`) ? "opacity-40" : ""} />
+                        <SlotSymbol key={row} id={s} value={orbs.get(`${r}-${row}`)} win={winPos.has(`${r}-${row}`)} className={winPos.size && !winPos.has(`${r}-${row}`) ? "opacity-40" : ""} />
                       ))}
                     </div>
                   )}
@@ -180,6 +188,11 @@ function Game() {
               ))}
             </div>
 
+            {multi !== null && multi > 1 && !banner && (
+              <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 flex -translate-y-1/2 justify-center">
+                <p className="animate-big-win font-display text-gold rounded-2xl bg-background/70 px-6 py-2 text-5xl font-black sm:text-7xl">x{multi}</p>
+              </div>
+            )}
             {banner && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-[1.35rem] bg-background/70">
                 <p className="animate-big-win font-display text-gold text-5xl font-black sm:text-7xl">{banner.title}</p>
@@ -214,12 +227,39 @@ function Game() {
             <RoundBtn onClick={() => setShowHist(true)} label="Historial"><History /></RoundBtn>
           </div>
         </div>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <button onClick={() => setConfirmBuy("bonus")} disabled={busy || auto > 0}
+            className="rounded-2xl border border-secondary bg-card p-3 text-left backdrop-blur transition-transform hover:scale-[1.02] disabled:opacity-40">
+            <p className="font-display text-sm font-bold text-secondary">COMPRAR BONUS</p>
+            <p className="text-xs text-muted-foreground">Giros gratis con orbes hasta x1000</p>
+            <p className="font-display mt-1 text-lg font-black text-foreground">{fmt(bet * BUY_COST.bonus)}</p>
+          </button>
+          <button onClick={() => setConfirmBuy("super")} disabled={busy || auto > 0}
+            className="rounded-2xl border border-primary bg-card p-3 text-left shadow-gold backdrop-blur transition-transform hover:scale-[1.02] disabled:opacity-40">
+            <p className="font-display text-gold text-sm font-bold">SUPER BONUS</p>
+            <p className="text-xs text-muted-foreground">2 orbes x1000 escondidos en las tiradas (no siempre tocan)</p>
+            <p className="font-display mt-1 text-lg font-black text-foreground">{fmt(bet * BUY_COST.super)}</p>
+          </button>
+        </div>
         {error && <p className="mt-2 text-center text-sm font-semibold text-destructive">{error}</p>}
         <p className="mt-3 text-center text-xs text-muted-foreground">
           Pulsa espacio para girar · <Link to="/integracion" className="inline-flex items-center gap-1 text-secondary underline"><Code2 className="h-3 w-3" />Integración para casinos</Link>
         </p>
       </section>
 
+      <Dialog open={confirmBuy !== null} onOpenChange={(o) => !o && setConfirmBuy(null)}>
+        <DialogContent className="max-w-sm text-center">
+          <DialogHeader><DialogTitle className="font-display text-gold text-2xl">{confirmBuy === "super" ? "Super Bonus" : "Comprar Bonus"}</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {confirmBuy === "super"
+              ? "10 giros gratis con orbes multiplicadores y 2 orbes x1000 ocultos en tiradas al azar. Pueden no aparecer, y solo pagan si esa tirada tiene premio."
+              : "10 giros gratis garantizados con orbes multiplicadores de hasta x1000."}
+          </p>
+          <p className="font-display text-3xl font-black text-foreground">{confirmBuy && fmt(bet * BUY_COST[confirmBuy])}</p>
+          <button onClick={() => { const b = confirmBuy; setConfirmBuy(null); spin(b); }}
+            className="bg-gold font-display rounded-full py-3 text-lg font-black text-primary-foreground shadow-gold">CONFIRMAR</button>
+        </DialogContent>
+      </Dialog>
       <Paytable open={showPay} onOpenChange={setShowPay} bet={bet} fmt={fmt} />
       <HistorySheet open={showHist} onOpenChange={setShowHist} history={history} fmt={fmt} />
     </main>
@@ -267,7 +307,15 @@ function Paytable({ open, onOpenChange, bet, fmt }: { open: boolean; onOpenChang
           <div className="text-sm">
             <p className="font-bold">{SYMBOL_NAME.SCATTER} — paga en cualquier posición</p>
             {[5, 4, 3].map((n) => <p key={n}>{n}× → {fmt(SCATTER_PAY[n]! * bet)} + {FREE_SPINS[n]} giros gratis</p>)}
-            <p className="text-muted-foreground">Todos los premios de giros gratis x{FREE_SPIN_MULTIPLIER}. Se pueden reactivar.</p>
+            <p className="text-muted-foreground">Los giros gratis se pueden reactivar.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 rounded-xl border border-secondary bg-muted p-3">
+          <div className="h-16 w-16 shrink-0"><SlotSymbol id="ORB" value={1000} /></div>
+          <div className="text-sm">
+            <p className="font-bold">Orbe multiplicador — solo en giros gratis</p>
+            <p>Valores: {ORB_TABLE.map(([v]) => `x${v}`).join(", ")}. Si hay varios orbes se suman y multiplican todo el premio de la tirada.</p>
+            <p className="text-muted-foreground">Compra Bonus: {BUY_COST.bonus}× apuesta · Super Bonus: {BUY_COST.super}× apuesta. Premio máximo {MAX_WIN_X.toLocaleString("es-ES")}× apuesta. RTP teórico ≈ 96%.</p>
           </div>
         </div>
       </DialogContent>
@@ -288,7 +336,7 @@ function HistorySheet({ open, onOpenChange, history, fmt }: { open: boolean; onO
                 <span>{new Date(h.timestamp).toLocaleTimeString("es-ES")}</span>
                 <span className={h.totalWin > 0 ? "font-bold text-primary" : "text-muted-foreground"}>{h.totalWin > 0 ? `+${fmt(h.totalWin)}` : "Sin premio"}</span>
               </div>
-              <p className="text-muted-foreground">Apuesta {fmt(h.bet)} · {h.base.lineWins.length} líneas{h.freeSpins.length ? ` · ${h.freeSpins.length} giros gratis` : ""}</p>
+              <p className="text-muted-foreground">{h.buy ? `${h.buy === "super" ? "Super Bonus" : "Compra Bonus"} ${fmt(h.cost)}` : `Apuesta ${fmt(h.bet)}`} · {h.base.lineWins.length} líneas{h.freeSpins.length ? ` · ${h.freeSpins.length} giros gratis` : ""}</p>
               <p className="truncate font-mono text-[10px] text-muted-foreground">ID {h.roundId}</p>
             </li>
           ))}
