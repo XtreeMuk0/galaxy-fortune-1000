@@ -71,9 +71,9 @@ export interface RoundResult {
 
 // ---- Función bonus: orbes multiplicadores (solo en giros gratis) ----
 // Valores ajustados por simulación (scripts/rtp-sim.ts) para controlar el RTP.
-export const TUNING = { PAY_SCALE: 4.23, ORB_CHANCE: 0.2 }; // ajustado por simulación
+export const TUNING = { PAY_SCALE: 4.4, ORB_CHANCE: 0.2, SUPER_ORB_CHANCE: 0.1 }; // ajustado por simulación
 export const ORB_TABLE: [number, number][] = [
-  [2, 150], [3, 150], [5, 150], [10, 80], [25, 35], [50, 15], [100, 6], [250, 2], [500, 0.6], [1000, 0.15],
+  [2, 120], [3, 150], [5, 150], [10, 80], [25, 35], [50, 15], [100, 6], [250, 2], [500, 0.6], [1000, 0.15],
 ];
 // En la super compra los orbes normales no traen x1000; se garantizan 2 x1000 en tiradas aleatorias
 const ORB_TABLE_SUPER = ORB_TABLE.filter(([v]) => v < 1000);
@@ -130,11 +130,11 @@ function spinGrid(): Grid {
   return Array.from({ length: REELS }, () => Array.from({ length: ROWS }, pick));
 }
 
-function freeSpin(bet: number, table: [number, number][], forceX1000: boolean): SpinStep {
+function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, orbChance: number): SpinStep {
   const grid = spinGrid();
   const orbs: Orb[] = [];
   grid.forEach((col, reel) => col.forEach((s, row) => {
-    if (s !== "SCATTER" && s !== "WILD" && rand() < TUNING.ORB_CHANCE) {
+    if (s !== "SCATTER" && s !== "WILD" && rand() < orbChance) {
       col[row] = "ORB"; orbs.push({ reel, row, value: pickWeighted(table) });
     }
   }));
@@ -163,7 +163,7 @@ export function playRound(bet: number, buy: BuyType | null = null): RoundResult 
   if (buy === "super") while (x1000At.size < SUPER_X1000_COUNT) x1000At.add(Math.floor(rand() * base.freeSpinsAwarded));
   let remaining = base.freeSpinsAwarded;
   while (remaining > 0 && freeSpins.length < 100) {
-    const step = freeSpin(bet, table, x1000At.has(freeSpins.length));
+    const step = freeSpin(bet, table, x1000At.has(freeSpins.length), buy === "super" ? TUNING.SUPER_ORB_CHANCE : TUNING.ORB_CHANCE);
     freeSpins.push(step);
     remaining += step.freeSpinsAwarded - 1; // reactivación
   }
