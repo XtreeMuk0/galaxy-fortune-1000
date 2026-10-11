@@ -48,7 +48,7 @@ async function call(p: LaunchParams, secret: string, action: string, body: Recor
 export const walletBalance = (p: LaunchParams, s: string) => call(p, s, "balance", {});
 
 export async function settleRound(p: LaunchParams, secret: string, round: RoundResult) {
-  const debit = await call(p, secret, "debit", { roundId: round.roundId, transactionId: `${round.roundId}-D`, amount: round.bet, gameId: round.gameId });
+  const debit = await call(p, secret, "debit", { roundId: round.roundId, transactionId: `${round.roundId}-D`, amount: round.cost, buy: round.buy, gameId: round.gameId });
   try {
     return await call(p, secret, "credit", {
       roundId: round.roundId, transactionId: `${round.roundId}-C`, amount: round.totalWin, gameId: round.gameId,
@@ -56,7 +56,7 @@ export async function settleRound(p: LaunchParams, secret: string, round: RoundR
       details: { base: round.base, freeSpins: round.freeSpins, version: round.version, timestamp: round.timestamp },
     });
   } catch (e) {
-    await call(p, secret, "rollback", { roundId: round.roundId, transactionId: `${round.roundId}-D`, amount: round.bet }).catch(() => {});
+    await call(p, secret, "rollback", { roundId: round.roundId, transactionId: `${round.roundId}-D`, amount: round.cost }).catch(() => {});
     throw e;
   }
   void debit;
