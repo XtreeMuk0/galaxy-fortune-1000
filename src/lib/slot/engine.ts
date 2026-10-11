@@ -32,7 +32,6 @@ export const PAYTABLE: Partial<Record<SymbolId, [number, number, number]>> = {
 // Pago de scatter: multiplicador de la apuesta TOTAL
 export const SCATTER_PAY: Record<number, number> = { 3: 2, 4: 10, 5: 50 };
 export const FREE_SPINS: Record<number, number> = { 3: 10, 4: 15, 5: 20 };
-export const FREE_SPIN_MULTIPLIER = 2;
 
 export const PAYLINES: number[][] = [
   [1,1,1,1,1],[0,0,0,0,0],[2,2,2,2,2],[0,1,2,1,0],[2,1,0,1,2],
@@ -72,7 +71,7 @@ export interface RoundResult {
 
 // ---- Función bonus: orbes multiplicadores (solo en giros gratis) ----
 // Valores ajustados por simulación (scripts/rtp-sim.ts) para controlar el RTP.
-export const ORB_CHANCE = 0.03; // probabilidad por celda en giros gratis
+export const TUNING = { PAY_SCALE: 4, ORB_CHANCE: 0.1 }; // ajustado por simulación
 export const ORB_TABLE: [number, number][] = [
   [2, 400], [3, 250], [5, 150], [10, 80], [25, 35], [50, 15], [100, 6], [250, 2], [500, 0.6], [1000, 0.15],
 ];
@@ -114,14 +113,14 @@ function evaluate(grid: Grid, bet: number, orbs: Orb[]): SpinStep {
     const [finalSym, finalCount, finalPay]: [SymbolId, number, number] = wildPay > pay ? ["WILD" as SymbolId, wildRun, wildPay] : [sym, count, pay];
     if (finalPay > 0) {
       lineWins.push({
-        line: li, symbol: finalSym, count: finalCount, win: round2(finalPay * lineBet),
+        line: li, symbol: finalSym, count: finalCount, win: round2(finalPay * lineBet * TUNING.PAY_SCALE),
         positions: pl.slice(0, finalCount).map((row, reel) => [reel, row]),
       });
     }
   });
   const scatterCount = grid.flat().filter((s) => s === "SCATTER").length;
   const sc = Math.min(scatterCount, 5);
-  const scatterWin = round2((SCATTER_PAY[sc] ?? 0) * bet);
+  const scatterWin = round2((SCATTER_PAY[sc] ?? 0) * bet * TUNING.PAY_SCALE);
   const raw = lineWins.reduce((s, l) => s + l.win, 0) + scatterWin;
   const multiplier = orbs.length ? orbs.reduce((s, o) => s + o.value, 0) : 1;
   return { grid, lineWins, scatterCount, scatterWin, win: round2(raw * multiplier), multiplier, freeSpinsAwarded: FREE_SPINS[sc] ?? 0, orbs };
@@ -135,7 +134,7 @@ function freeSpin(bet: number, table: [number, number][], forceX1000: boolean): 
   const grid = spinGrid();
   const orbs: Orb[] = [];
   grid.forEach((col, reel) => col.forEach((s, row) => {
-    if (s !== "SCATTER" && s !== "WILD" && rand() < ORB_CHANCE) {
+    if (s !== "SCATTER" && s !== "WILD" && rand() < TUNING.ORB_CHANCE) {
       col[row] = "ORB"; orbs.push({ reel, row, value: pickWeighted(table) });
     }
   }));
