@@ -1,9 +1,9 @@
 // Galaxias — motor matemático puro. Se ejecuta en el servidor (autoritativo).
-// 5 rodillos x 3 filas, 20 líneas fijas, WILD sustituye, SCATTER x3+ = giros gratis x2.
+// 5 rodillos x 3 filas, 20 líneas fijas, WILD sustituye, SCATTER x3+ = giros gratis con orbes multiplicadores.
 
 export type SymbolId =
   | "WILD" | "SCATTER" | "ASTRO" | "PLANET" | "UFO" | "COMET" | "CRYSTAL"
-  | "A" | "K" | "Q" | "J";
+  | "A" | "K" | "Q" | "J" | "ORB";
 
 export const ROWS = 3;
 export const REELS = 5;
@@ -11,7 +11,7 @@ export const GAME_ID = "galaxias";
 export const GAME_VERSION = "1.0.0";
 
 // Pesos por rodillo (tira virtual)
-const WEIGHTS: Record<SymbolId, number> = {
+const WEIGHTS: Record<Exclude<SymbolId, "ORB">, number> = {
   WILD: 2, SCATTER: 2, ASTRO: 4, PLANET: 6, UFO: 7, COMET: 8, CRYSTAL: 9,
   A: 12, K: 13, Q: 14, J: 15,
 };
