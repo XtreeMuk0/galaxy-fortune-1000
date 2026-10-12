@@ -8,8 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   BET_LEVELS, PAYTABLE, SCATTER_PAY, FREE_SPINS, REELS, ROWS, BUY_COST, ORB_TABLE, MAX_WIN_X,
-  type Grid, type RoundResult, type SpinStep, type SymbolId, type BuyType,
+  type Grid, type RoundResult, type SpinStep, type SymbolId, type BuyType, type Volatility, RTP_OPTIONS, VOLATILITIES,
 } from "@/lib/slot/engine";
+
+const DEMO_BALANCE = 100000;
+const VOL_LABEL: Record<Volatility, string> = { medium: "Media", high: "Alta", extreme: "Extrema" };
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -46,7 +49,10 @@ function Game() {
   const launch = useLaunch();
   const real = !!launch;
   const currency = launch?.currency ?? "FUN";
-  const [balance, setBalance] = useState(1000);
+  const [balance, setBalance] = useState(DEMO_BALANCE);
+  const [rtp, setRtp] = useState(96);
+  const [vol, setVol] = useState<Volatility>("high");
+  const [notice, setNotice] = useState<string | null>(null);
   const [betIdx, setBetIdx] = useState(2);
   const [grid, setGrid] = useState<Grid>(() => randGrid());
   const [spinning, setSpinning] = useState<boolean[]>(Array(REELS).fill(false));
@@ -97,13 +103,16 @@ function Game() {
   const spin = useCallback(async (buy: BuyType | null = null) => {
     if (busy) return;
     const cost = +(bet * (buy ? BUY_COST[buy] : 1)).toFixed(2);
-    if (!real && balance < cost) { setError("Saldo insuficiente"); setAuto(0); return; }
     setBusy(true); setError(null); setLastWin(0); setBanner(null);
-    if (!real) setBalance((b) => +(b - cost).toFixed(2));
+    if (!real) {
+      // Demo: recarga automática al quedarse sin saldo
+      if (balance < cost) { setNotice(`Saldo recargado: ${fmt(DEMO_BALANCE)} FUN`); setTimeout(() => setNotice(null), 2500); setBalance(+(DEMO_BALANCE - cost).toFixed(2)); }
+      else setBalance((b) => +(b - cost).toFixed(2));
+    }
     try {
       const res = await fetch("/api/public/v1/spin", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: real ? "real" : "demo", bet, buy, launch: launch ?? undefined }),
+        body: JSON.stringify({ mode: real ? "real" : "demo", bet, buy, launch: launch ?? undefined, config: { rtp, volatility: vol } }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error === "insufficient_funds" ? "Saldo insuficiente" : "Error de conexión con el servidor");
@@ -131,7 +140,7 @@ function Game() {
       setError((e as Error).message); setAuto(0);
       setSpinning(Array(REELS).fill(false));
     } finally { setBusy(false); }
-  }, [busy, real, balance, bet, launch, animateStep]);
+  }, [busy, real, balance, bet, launch, animateStep, rtp, vol]);
 
   useEffect(() => {
     if (auto > 0 && !busy) {
@@ -241,6 +250,21 @@ function Game() {
             <p className="font-display mt-1 text-lg font-black text-foreground">{fmt(bet * BUY_COST.super)}</p>
           </button>
         </div>
+        <div className="mt-3 grid grid-cols-2 gap-3 rounded-2xl border border-border bg-card p-3 backdrop-blur">
+          <label className="text-xs text-muted-foreground">RTP
+            <select value={rtp} onChange={(e) => setRtp(Number(e.target.value))} disabled={busy || auto > 0}
+              className="mt-1 w-full rounded-lg border border-border bg-background p-2 font-display text-sm text-foreground">
+              {RTP_OPTIONS.map((r) => <option key={r} value={r}>{r}%</option>)}
+            </select>
+          </label>
+          <label className="text-xs text-muted-foreground">Volatilidad
+            <select value={vol} onChange={(e) => setVol(e.target.value as Volatility)} disabled={busy || auto > 0}
+              className="mt-1 w-full rounded-lg border border-border bg-background p-2 font-display text-sm text-foreground">
+              {VOLATILITIES.map((v) => <option key={v} value={v}>{VOL_LABEL[v]}</option>)}
+            </select>
+          </label>
+        </div>
+        {notice && <p className="mt-2 text-center text-sm font-semibold text-secondary">{notice}</p>}
         {error && <p className="mt-2 text-center text-sm font-semibold text-destructive">{error}</p>}
         <p className="mt-3 text-center text-xs text-muted-foreground">
           Pulsa espacio para girar · <Link to="/integracion" className="inline-flex items-center gap-1 text-secondary underline"><Code2 className="h-3 w-3" />Integración para casinos</Link>
