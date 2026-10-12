@@ -106,7 +106,7 @@ function Game() {
     setBusy(true); setError(null); setLastWin(0); setBanner(null);
     if (!real) {
       // Demo: recarga automática al quedarse sin saldo
-      if (balance < cost) { setNotice(`Saldo recargado: ${fmt(DEMO_BALANCE)} FUN`); setTimeout(() => setNotice(null), 2500); setBalance(+(DEMO_BALANCE - cost).toFixed(2)); }
+      if (balance < cost) { setNotice(`Saldo recargado: ${fmt(DEMO_BALANCE)}`); setTimeout(() => setNotice(null), 2500); setBalance(+(DEMO_BALANCE - cost).toFixed(2)); }
       else setBalance((b) => +(b - cost).toFixed(2));
     }
     try {
