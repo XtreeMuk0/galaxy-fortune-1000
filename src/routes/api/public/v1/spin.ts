@@ -6,7 +6,7 @@ const Launch = z.object({
   currency: z.string().regex(/^[A-Z]{3}$/), session: z.string().min(1).max(256),
   wallet: z.string().url().max(512), ts: z.string().regex(/^\d+$/), sig: z.string().regex(/^[a-f0-9]{64}$/),
 });
-const Body = z.object({ mode: z.enum(["demo", "real"]), bet: z.number().positive(), buy: z.enum(["bonus", "super"]).nullable().optional(), launch: Launch.optional() });
+const Body = z.object({ mode: z.enum(["demo", "real"]), bet: z.number().positive(), buy: z.enum(["bonus", "super"]).nullable().optional(), launch: Launch.optional(), config: z.object({ rtp: z.number().min(94).max(97), volatility: z.enum(["medium", "high", "extreme"]) }).optional() });
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/api/public/v1/spin")({
         if (!parsed.success) return Response.json({ error: "invalid_request" }, { status: 400, headers: cors });
         const { playRound } = await import("@/lib/slot/engine");
         let round;
-        try { round = playRound(parsed.data.bet, parsed.data.buy ?? null); } catch { return Response.json({ error: "invalid_bet" }, { status: 400, headers: cors }); }
+        try { round = playRound(parsed.data.bet, parsed.data.buy ?? null, parsed.data.config ?? null); } catch { return Response.json({ error: "invalid_bet" }, { status: 400, headers: cors }); }
 
         if (parsed.data.mode === "demo") return Response.json({ round, balance: null }, { headers: cors });
 
