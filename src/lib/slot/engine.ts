@@ -65,7 +65,7 @@ export interface SpinStep {
 }
 export type BuyType = "bonus" | "super";
 export interface RoundResult {
-  roundId: string; gameId: string; version: string; bet: number; cost: number; buy: BuyType | null;
+  config: GameConfig; roundId: string; gameId: string; version: string; bet: number; cost: number; buy: BuyType | null;
   base: SpinStep; freeSpins: SpinStep[]; totalWin: number; capped: boolean; timestamp: string;
 }
 
@@ -81,6 +81,25 @@ export const BUY_COST: Record<BuyType, number> = { bonus: 100, super: 500 };
 export const SUPER_X1000_COUNT = 2;
 export const MAX_WIN_X = 10000; // premio máximo por ronda (x apuesta)
 
+export type Volatility = "medium" | "high" | "extreme";
+export const VOLATILITIES: Volatility[] = ["medium", "high", "extreme"];
+export const RTP_OPTIONS = [94, 95, 96, 97];
+export interface GameConfig { rtp: number; volatility: Volatility }
+export const DEFAULT_CONFIG: GameConfig = { rtp: 96, volatility: "high" };
+// Volatilidad: inclina el peso de los orbes grandes (>=25)
+const VOL_TILT: Record<Volatility, number> = { medium: 0.4, high: 1, extreme: 2.5 };
+// Compensación calibrada por simulación para que cada modo dé el RTP objetivo
+export const VOL_CAL: Record<Volatility, Record<"base" | BuyType, number>> = {
+  medium: { base: 1.106, bonus: 1.375, super: 1.026 }, high: { base: 0.962, bonus: 0.986, super: 0.982 }, extreme: { base: 0.796, bonus: 0.628, super: 0.882 },
+};
+function tilt(table: [number, number][], v: Volatility): [number, number][] {
+  return table.map(([x, w]) => [x, x >= 25 ? w * VOL_TILT[v] : w]);
+}
+export function normalizeConfig(c?: Partial<GameConfig> | null): GameConfig {
+  const rtp = RTP_OPTIONS.includes(Number(c?.rtp)) ? Number(c!.rtp) : DEFAULT_CONFIG.rtp;
+  const volatility = VOLATILITIES.includes(c?.volatility as Volatility) ? (c!.volatility as Volatility) : DEFAULT_CONFIG.volatility;
+  return { rtp, volatility };
+}
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function pickWeighted(table: [number, number][]): number {
@@ -90,7 +109,7 @@ function pickWeighted(table: [number, number][]): number {
   return table[0]![0];
 }
 
-function evaluate(grid: Grid, bet: number, orbs: Orb[]): SpinStep {
+function evaluate(grid: Grid, bet: number, orbs: Orb[], scale: number): SpinStep {
   const lineBet = bet / LINES;
   const lineWins: LineWin[] = [];
   PAYLINES.forEach((pl, li) => {
@@ -113,14 +132,14 @@ function evaluate(grid: Grid, bet: number, orbs: Orb[]): SpinStep {
     const [finalSym, finalCount, finalPay]: [SymbolId, number, number] = wildPay > pay ? ["WILD" as SymbolId, wildRun, wildPay] : [sym, count, pay];
     if (finalPay > 0) {
       lineWins.push({
-        line: li, symbol: finalSym, count: finalCount, win: round2(finalPay * lineBet * TUNING.PAY_SCALE),
+        line: li, symbol: finalSym, count: finalCount, win: round2(finalPay * lineBet * scale),
         positions: pl.slice(0, finalCount).map((row, reel) => [reel, row]),
       });
     }
   });
   const scatterCount = grid.flat().filter((s) => s === "SCATTER").length;
   const sc = Math.min(scatterCount, 5);
-  const scatterWin = round2((SCATTER_PAY[sc] ?? 0) * bet * TUNING.PAY_SCALE);
+  const scatterWin = round2((SCATTER_PAY[sc] ?? 0) * bet * scale);
   const raw = lineWins.reduce((s, l) => s + l.win, 0) + scatterWin;
   const multiplier = orbs.length ? orbs.reduce((s, o) => s + o.value, 0) : 1;
   return { grid, lineWins, scatterCount, scatterWin, win: round2(raw * multiplier), multiplier, freeSpinsAwarded: FREE_SPINS[sc] ?? 0, orbs };
@@ -130,7 +149,7 @@ function spinGrid(): Grid {
   return Array.from({ length: REELS }, () => Array.from({ length: ROWS }, pick));
 }
 
-function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, orbChance: number): SpinStep {
+function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, orbChance: number, scale: number): SpinStep {
   const grid = spinGrid();
   const orbs: Orb[] = [];
   grid.forEach((col, reel) => col.forEach((s, row) => {
@@ -144,7 +163,7 @@ function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, o
     const [reel, row] = free[Math.floor(rand() * free.length)]!;
     grid[reel]![row] = "ORB"; orbs.push({ reel, row, value: 1000 });
   }
-  return evaluate(grid, bet, orbs);
+  return evaluate(grid, bet, orbs, scale);
 }
 
 function forcedTriggerGrid(): Grid {
@@ -154,11 +173,13 @@ function forcedTriggerGrid(): Grid {
   return grid;
 }
 
-export function playRound(bet: number, buy: BuyType | null = null): RoundResult {
+export function playRound(bet: number, buy: BuyType | null = null, cfg?: Partial<GameConfig> | null): RoundResult {
   if (!BET_LEVELS.includes(bet)) throw new Error("Apuesta no válida");
-  const base = evaluate(buy ? forcedTriggerGrid() : spinGrid(), bet, []);
+  const config = normalizeConfig(cfg);
+  const scale = TUNING.PAY_SCALE * (config.rtp / 96) * VOL_CAL[config.volatility][buy ?? "base"];
+  const base = evaluate(buy ? forcedTriggerGrid() : spinGrid(), bet, [], scale);
   const freeSpins: SpinStep[] = [];
-  const table = buy === "super" ? ORB_TABLE_SUPER : ORB_TABLE;
+  const table = tilt(buy === "super" ? ORB_TABLE_SUPER : ORB_TABLE, config.volatility);
   const x1000At = new Set<number>();
   // Super: 2 x1000 en tiradas aleatorias; cada uno aparece solo con cierta probabilidad (no siempre toca)
   if (buy === "super") {
@@ -168,7 +189,7 @@ export function playRound(bet: number, buy: BuyType | null = null): RoundResult 
   }
   let remaining = base.freeSpinsAwarded;
   while (remaining > 0 && freeSpins.length < 100) {
-    const step = freeSpin(bet, table, x1000At.has(freeSpins.length), buy === "super" ? TUNING.SUPER_ORB_CHANCE : TUNING.ORB_CHANCE);
+    const step = freeSpin(bet, table, x1000At.has(freeSpins.length), buy === "super" ? TUNING.SUPER_ORB_CHANCE : TUNING.ORB_CHANCE, scale);
     freeSpins.push(step);
     remaining += step.freeSpinsAwarded - 1; // reactivación
   }
@@ -178,6 +199,6 @@ export function playRound(bet: number, buy: BuyType | null = null): RoundResult 
   return {
     roundId: globalThis.crypto.randomUUID(), gameId: GAME_ID, version: GAME_VERSION,
     bet, cost: round2(bet * (buy ? BUY_COST[buy] : 1)), buy,
-    base, freeSpins, totalWin, capped, timestamp: new Date().toISOString(),
+    base, freeSpins, totalWin, capped, config, timestamp: new Date().toISOString(),
   };
 }
