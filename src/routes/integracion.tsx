@@ -57,7 +57,9 @@ POST /balance   → { "balance": 100.00 }`}</Code>
         <li>5×3, 20 líneas fijas, apuestas de 0,20 a 100</li>
         <li>Wild sustituye; Scatter 3/4/5 = 10/15/20 giros gratis con orbes multiplicadores x2 a x1000 (reactivables)</li>
         <li>Compra de bonus: 100× la apuesta. Super Bonus: 500× con 2 orbes x1000 aleatorios. En el <code>/debit</code> se envía el coste real y el campo <code>buy</code>.</li>
-        <li>RTP teórico ≈ 96% en juego normal y en ambas compras; premio máximo 10.000× la apuesta.</li>
+        <li>RTP configurable por el casino: 94%, 95%, 96% o 97% (por defecto 96%), igual en juego normal y en ambas compras; premio máximo 10.000× la apuesta.</li>
+        <li>Volatilidad configurable por el casino: media, alta o extrema (por defecto alta). En dinero real el jugador no puede cambiarlos; se fijan en nuestro servidor para cada casino.</li>
+        <li>Modo demo: 100.000 FUN con recarga automática al agotarse.</li>
         <li>Generador aleatorio criptográfico en servidor. Requiere certificación (GLI/eCOGRA) antes de dinero real.</li>
       </ul>
     </main>
