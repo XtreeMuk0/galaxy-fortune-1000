@@ -72,6 +72,10 @@ function Game() {
   const bet = BET_LEVELS[betIdx]!;
   const autoRef = useRef(auto);
   autoRef.current = auto;
+  const [turbo, setTurbo] = useState(false);
+  const turboRef = useRef(turbo);
+  turboRef.current = turbo;
+  const [autoCount, setAutoCount] = useState(25);
 
   useEffect(() => {
     if (!launch) return;
@@ -81,23 +85,26 @@ function Game() {
   }, [launch]);
 
   const animateStep = useCallback(async (step: SpinStep) => {
+    const t = turboRef.current;
     setWinPos(new Set()); setOrbs(new Map()); setMulti(null);
     setSpinning(Array(REELS).fill(true));
-    await sleep(450);
+    await sleep(t ? 250 : 900);
     for (let r = 0; r < REELS; r++) {
-      await sleep(r === REELS - 1 && step.scatterCount >= 2 ? 900 : 180);
+      await sleep(r === REELS - 1 && step.scatterCount >= 2 ? (t ? 700 : 1400) : (t ? 120 : 400));
       setGrid((g) => g.map((col, i) => (i === r ? step.grid[r]! : col)));
       setSpinning((s) => s.map((v, i) => (i === r ? false : v)));
     }
+    // Pausa para ver el resultado final (incluido el último rodillo)
+    await sleep(t ? 450 : 700);
     const pos = new Set<string>();
     step.lineWins.forEach((l) => l.positions.forEach(([a, b]) => pos.add(`${a}-${b}`)));
     if (step.scatterWin > 0 || step.freeSpinsAwarded) step.grid.forEach((col, a) => col.forEach((s, b) => s === "SCATTER" && pos.add(`${a}-${b}`)));
     setOrbs(new Map(step.orbs.map((o) => [`${o.reel}-${o.row}`, o.value])));
     if (step.orbs.length && step.win > 0) {
       step.orbs.forEach((o) => pos.add(`${o.reel}-${o.row}`));
-      setWinPos(pos); await sleep(500); setMulti(step.multiplier); await sleep(1200);
+      setWinPos(pos); await sleep(t ? 400 : 700); setMulti(step.multiplier); await sleep(t ? 900 : 1500);
     } else setWinPos(pos);
-    if (step.win > 0) await sleep(900);
+    if (step.win > 0) await sleep(t ? 800 : 1300);
   }, []);
 
   const spin = useCallback(async (buy: BuyType | null = null) => {
