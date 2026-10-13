@@ -7,7 +7,7 @@ export type SymbolId =
 
 export const ROWS = 3;
 export const REELS = 5;
-export const GAME_ID = "galaxias";
+export const GAME_ID = "galaxy-fortune-1000";
 export const GAME_VERSION = "1.0.0";
 
 // Pesos por rodillo (tira virtual)
