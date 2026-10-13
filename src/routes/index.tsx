@@ -250,7 +250,7 @@ function Game() {
             <p className="font-display mt-1 text-lg font-black text-foreground">{fmt(bet * BUY_COST.super)}</p>
           </button>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-3 rounded-2xl border border-border bg-card p-3 backdrop-blur">
+        <div className={`mt-3 grid grid-cols-2 gap-3 rounded-2xl border border-border bg-card p-3 backdrop-blur ${real ? "hidden" : ""}`}>
           <label className="text-xs text-muted-foreground">RTP
             <select value={rtp} onChange={(e) => setRtp(Number(e.target.value))} disabled={busy || auto > 0}
               className="mt-1 w-full rounded-lg border border-border bg-background p-2 font-display text-sm text-foreground">

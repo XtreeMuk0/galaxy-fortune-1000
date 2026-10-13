@@ -23,7 +23,11 @@ export const Route = createFileRoute("/api/public/v1/spin")({
         if (!parsed.success) return Response.json({ error: "invalid_request" }, { status: 400, headers: cors });
         const { playRound } = await import("@/lib/slot/engine");
         let round;
-        try { round = playRound(parsed.data.bet, parsed.data.buy ?? null, parsed.data.config ?? null); } catch { return Response.json({ error: "invalid_bet" }, { status: 400, headers: cors }); }
+        // En dinero real el RTP/volatilidad los fija el casino (variables del servidor), nunca el jugador
+        const cfg = parsed.data.mode === "real"
+          ? { rtp: Number(process.env["OPERATOR_RTP"] ?? 96), volatility: (process.env["OPERATOR_VOLATILITY"] ?? "high") as "medium" | "high" | "extreme" }
+          : parsed.data.config ?? null;
+        try { round = playRound(parsed.data.bet, parsed.data.buy ?? null, cfg); } catch { return Response.json({ error: "invalid_bet" }, { status: 400, headers: cors }); }
 
         if (parsed.data.mode === "demo") return Response.json({ round, balance: null }, { headers: cors });
 
