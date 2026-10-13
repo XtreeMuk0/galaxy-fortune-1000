@@ -169,11 +169,10 @@ function Game() {
       <img src={bg} alt="" width={1920} height={1088} className="absolute inset-0 -z-10 h-full w-full object-cover" />
       <div className="absolute inset-0 -z-10 bg-background/30" />
 
-      <header className="mb-4 text-center">
-        <h1 className="font-display text-gold text-5xl font-black tracking-widest drop-shadow-2xl sm:text-7xl">GALAXIAS</h1>
-        <p className="mt-1 font-display text-xs tracking-[0.4em] text-secondary">
-          {real ? `MODO REAL · ${launch!.operator.toUpperCase()}` : "MODO DEMO · DINERO FICTICIO"}
-        </p>
+      <header className="relative mb-4 text-center">
+        <h1 className="font-display text-gold text-4xl font-black tracking-widest drop-shadow-2xl sm:text-6xl">GALAXY FORTUNE</h1>
+        <p className="font-display text-gold text-3xl font-black tracking-[0.3em] sm:text-5xl">1000</p>
+        {!real && <span className="absolute -top-2 right-0 rotate-6 rounded-md bg-accent px-2 py-0.5 font-display text-xs font-black tracking-widest text-accent-foreground shadow-gold">DEMO</span>}
       </header>
 
       <section className="w-full max-w-4xl">
