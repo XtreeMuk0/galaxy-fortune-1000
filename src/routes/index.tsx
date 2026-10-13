@@ -238,10 +238,21 @@ function Game() {
 
           <div className="flex items-center justify-end gap-2">
             <Stat label="APUESTA" value={fmt(bet)} />
-            <RoundBtn onClick={() => setAuto(auto ? 0 : 25)} label="Autojuego" active={auto > 0}><Zap /></RoundBtn>
+            <RoundBtn onClick={() => setTurbo((v) => !v)} label={turbo ? "Turbo activado" : "Modo normal"} active={turbo}><Zap /></RoundBtn>
             <RoundBtn onClick={() => setShowPay(true)} label="Tabla de pagos"><Info /></RoundBtn>
             <RoundBtn onClick={() => setShowHist(true)} label="Historial"><History /></RoundBtn>
           </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-border bg-card p-3 backdrop-blur">
+          <div className="flex overflow-hidden rounded-lg border border-border">
+            <button onClick={() => setTurbo(false)} className={`px-3 py-1.5 font-display text-xs font-bold ${!turbo ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>NORMAL</button>
+            <button onClick={() => setTurbo(true)} className={`px-3 py-1.5 font-display text-xs font-bold ${turbo ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}>TURBO</button>
+          </div>
+          <span className="ml-2 text-xs text-muted-foreground">Auto:</span>
+          {[10, 25, 50, 100, 500, 1000].map((n) => (
+            <button key={n} disabled={busy && !auto} onClick={() => { if (auto) { setAuto(0); return; } setAutoCount(n); setAuto(n); }}
+              className={`rounded-lg border border-border px-2.5 py-1.5 font-display text-xs font-bold disabled:opacity-40 ${auto > 0 && autoCount === n ? "bg-accent text-accent-foreground" : "bg-muted text-foreground hover:bg-primary hover:text-primary-foreground"}`}>{n}</button>
+          ))}
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3">
           <button onClick={() => setConfirmBuy("bonus")} disabled={busy || auto > 0}
