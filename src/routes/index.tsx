@@ -110,7 +110,7 @@ function Game() {
   const spin = useCallback(async (buy: BuyType | null = null) => {
     if (busy) return;
     const cost = +(bet * (buy ? BUY_COST[buy] : 1)).toFixed(2);
-    setBusy(true); setError(null); setLastWin(0); setBanner(null);
+    setBusy(true); setError(null); setBanner(null);
     if (!real) {
       // Demo: recarga automática al quedarse sin saldo
       if (balance < cost) { setNotice(`Saldo recargado: ${fmt(DEMO_BALANCE)}`); setTimeout(() => setNotice(null), 2500); setBalance(+(DEMO_BALANCE - cost).toFixed(2)); }
@@ -125,7 +125,7 @@ function Game() {
       if (!res.ok) throw new Error(json.error === "insufficient_funds" ? "Saldo insuficiente" : "Error de conexión con el servidor");
       const round: RoundResult = json.round;
       await animateStep(round.base);
-      setLastWin(round.base.win);
+      if (round.base.win > 0) setLastWin(round.base.win);
       if (round.freeSpins.length) {
         setBanner({ title: buy === "super" ? `SUPER BONUS · ${round.base.freeSpinsAwarded} GIROS` : `${round.base.freeSpinsAwarded} GIROS GRATIS` });
         await sleep(1800); setBanner(null);
@@ -133,7 +133,7 @@ function Game() {
         for (let i = 0; i < round.freeSpins.length; i++) {
           setFs({ left: round.freeSpins.length - i - 1, total: round.freeSpins.length, win: acc });
           await animateStep(round.freeSpins[i]!);
-          acc += round.freeSpins[i]!.win; setLastWin(+acc.toFixed(2));
+          acc += round.freeSpins[i]!.win; if (acc > 0) setLastWin(+acc.toFixed(2));
           setFs({ left: round.freeSpins.length - i - 1, total: round.freeSpins.length, win: acc });
         }
         setFs(null); setMulti(null);
@@ -220,7 +220,7 @@ function Game() {
         <div className="mt-4 grid grid-cols-2 items-center gap-3 rounded-2xl border border-border bg-card p-3 backdrop-blur sm:grid-cols-[1fr_auto_1fr]">
           <div className="flex gap-6">
             <Stat label="SALDO" value={fmt(balance)} />
-            <Stat label="GANANCIA" value={fmt(lastWin)} highlight={lastWin > 0} />
+            <Stat label="ÚLTIMA GANANCIA" value={fmt(lastWin)} highlight={lastWin > 0} />
           </div>
 
           <div className="order-last col-span-2 flex items-center justify-center gap-3 sm:order-none sm:col-span-1">
