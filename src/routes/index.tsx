@@ -13,7 +13,7 @@ import { ALL_SYMBOLS, SYMBOL_IMG, SYMBOL_NAME } from "@/components/slot/symbols"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
-  BET_LEVELS, PAYTABLE, SCATTER_PAY, FREE_SPINS, REELS, ROWS, BUY_COST, ORB_TABLE, MAX_WIN_X,
+  BET_LEVELS, PAYTABLE, PAY_DIV, TUNING, VOL_CAL, SCATTER_PAY, FREE_SPINS, REELS, ROWS, BUY_COST, ORB_TABLE, MAX_WIN_X,
   type Grid, type RoundResult, type BonusState, type SpinStep, type SymbolId, type BuyType, type Volatility, RTP_OPTIONS, VOLATILITIES,
 } from "@/lib/slot/engine";
 
@@ -24,9 +24,9 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Galaxy Fortune 1000 · Slot 7x5" },
-      { name: "description", content: "Galaxy Fortune 1000: 7x5, 50 líneas, wilds galácticos y giros gratis x2." },
+      { name: "description", content: "Galaxy Fortune 1000: 7x5, paga en cualquier posición con cascadas, wilds galácticos y giros gratis x2." },
       { property: "og:title", content: "Galaxy Fortune 1000 · Slot 7x5" },
-      { property: "og:description", content: "50 líneas, wilds galácticos y giros gratis x2." },
+      { property: "og:description", content: "Paga en cualquier posición con cascadas, wilds galácticos y giros gratis x2." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -170,11 +170,11 @@ function Game() {
     } else setWinPos(pos);
     playFx(step.lineWins);
     if (step.win > 0) await sleep(t ? 800 : 1300);
-    // Cascada (Super Bonus): se eliminan los premiados y solo los huecos hacen un mini giro
+    // Cascada (todos los modos): se eliminan los premiados y solo los huecos hacen un mini giro
     let prev = step;
     for (const tb of step.tumbles ?? []) {
       const removed = new Set<string>();
-      prev.lineWins.forEach((l) => l.positions.forEach(([a, b]) => { const s = prev.grid[a]![b]; if (!held.has(a) && s !== "ORB" && s !== "WILD") removed.add(`${a}-${b}`); }));
+      prev.lineWins.forEach((l) => l.positions.forEach(([a, b]) => { const s = prev.grid[a]![b]; if (!held.has(a) && s !== "ORB") removed.add(`${a}-${b}`); }));
       setWinPos(new Set()); setMulti(null);
       setGone(removed); await sleep(t ? 300 : 600);
       const holes = removed;
@@ -518,19 +518,19 @@ function RoundBtn({ children, onClick, disabled, label, active }: { children: Re
 }
 
 function Paytable({ open, onOpenChange, bet, fmt }: { open: boolean; onOpenChange: (o: boolean) => void; bet: number; fmt: (n: number) => string }) {
-  const lineBet = bet / 20;
+  const lineBet = (bet / PAY_DIV) * TUNING.PAY_SCALE * VOL_CAL.high.base;
   const rows = useMemo(() => Object.entries(PAYTABLE) as [SymbolId, number[]][], []);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader><DialogTitle className="font-display text-gold text-2xl">Tabla de pagos</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">50 líneas fijas, pagan de izquierda a derecha. La Galaxia sustituye a todos menos al Agujero negro. Valores para la apuesta actual.</p>
+        <p className="text-sm text-muted-foreground">Paga en cualquier posición: 5 o más símbolos iguales en cualquier lugar de la pantalla dan premio. Los premiados desaparecen y caen nuevos (cascada, hasta 5 seguidas), en el juego normal y en los bonos. La Galaxia (wild) sustituye a todos menos al Scatter. Valores aproximados para la apuesta actual.</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {rows.map(([s, p]) => (
             <div key={s} className="flex items-center gap-2 rounded-xl border border-border bg-muted p-2">
               <div className="h-14 w-14 shrink-0"><SlotSymbol id={s} /></div>
               <div className="text-xs">
-                {[7, 6, 5, 4, 3].map((n) => <p key={n}><span className="text-muted-foreground">{n}×</span> {fmt(p[n - 3]! * lineBet)}</p>)}
+                {[9, 8, 7, 6, 5].map((n) => <p key={n}><span className="text-muted-foreground">{n === 9 ? "9+" : n}×</span> {fmt(p[n - 5]! * lineBet)}</p>)}
               </div>
             </div>
           ))}
@@ -570,7 +570,7 @@ function HistorySheet({ open, onOpenChange, history, fmt }: { open: boolean; onO
                 <span>{new Date(h.timestamp).toLocaleTimeString("es-ES")}</span>
                 <span className={h.totalWin > 0 ? "font-bold text-primary" : "text-muted-foreground"}>{h.totalWin > 0 ? `+${fmt(h.totalWin)}` : "Sin premio"}</span>
               </div>
-              <p className="text-muted-foreground">{h.buy ? `${h.buy === "super" ? "Super Bonus" : "Compra Bonus"} ${fmt(h.cost)}` : `Apuesta ${fmt(h.bet)}`} · {h.base.lineWins.length} líneas{h.freeSpins.length ? ` · ${h.freeSpins.length} giros gratis` : ""}</p>
+              <p className="text-muted-foreground">{h.buy ? `${h.buy === "super" ? "Super Bonus" : "Compra Bonus"} ${fmt(h.cost)}` : `Apuesta ${fmt(h.bet)}`} · {h.base.lineWins.length} premios{h.freeSpins.length ? ` · ${h.freeSpins.length} giros gratis` : ""}</p>
               <p className="truncate font-mono text-[10px] text-muted-foreground">ID {h.roundId}</p>
             </li>
           ))}

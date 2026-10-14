@@ -1,5 +1,5 @@
 // Galaxias — motor matemático puro. Se ejecuta en el servidor (autoritativo).
-// 7 rodillos x 5 filas, 50 líneas fijas, WILD sustituye, SCATTER x3+ = giros gratis con orbes multiplicadores.
+// 7 rodillos x 5 filas, paga en cualquier sitio (5+ iguales) con cascadas, WILD sustituye, SCATTER x3+ = giros gratis con orbes multiplicadores.
 
 export type SymbolId =
   | "WILD" | "SCATTER" | "ASTRO" | "PLANET" | "UFO" | "COMET" | "CRYSTAL"
@@ -110,7 +110,7 @@ export const DEFAULT_CONFIG: GameConfig = { rtp: 96, volatility: "high" };
 const VOL_TILT: Record<Volatility, number> = { medium: 0.4, high: 1, extreme: 2.5 };
 // Compensación calibrada por simulación para que cada modo dé el RTP objetivo
 export const VOL_CAL: Record<Volatility, Record<"base" | BuyType, number>> = {
-  medium: { base: 0.6575, bonus: 0.026579, super: 0.001905 }, high: { base: 0.6418, bonus: 0.019826, super: 0.001524 }, extreme: { base: 0.6406, bonus: 0.013303, super: 0.001076 },
+  medium: { base: 0.0072, bonus: 0.000349, super: 0.000633 }, high: { base: 0.0063, bonus: 0.000252, super: 0.000505 }, extreme: { base: 0.0066, bonus: 0.000159, super: 0.000362 },
 };
 function tilt(table: [number, number][], v: Volatility): [number, number][] {
   return table.map(([x, w]) => [x, x >= 25 ? w * VOL_TILT[v] : w]);
@@ -129,41 +129,34 @@ function pickWeighted(table: [number, number][]): number {
   return table[0]![0];
 }
 
+// "Paga en cualquier sitio": se cuentan los símbolos iguales en toda la rejilla.
+// 5 = pago de 3 en línea, 6 = 4, 7 = 5, 8 = 6, 9+ = 7. WILD (y ORB en bonos) sustituyen; un carrete wild pegajoso cuenta como 1.
+export const MIN_COUNT = 5;
+export const PAY_DIV = 50;
 function evaluate(grid: Grid, bet: number, orbs: Orb[], scale: number, wildMult: Map<number, number> = new Map()): SpinStep {
-  const lineBet = bet / LINES;
   const lineWins: LineWin[] = [];
   const orbSum = orbs.reduce((s, o) => s + o.value, 0);
-  PAYLINES.forEach((pl, li) => {
-    const syms = pl.map((row, reel) => grid[reel]![row]!);
-    if (syms[0] === "SCATTER") return;
-    let target: SymbolId | null = null;
-    let count = 0;
-    for (const s of syms) {
-      if (s === "SCATTER") break;
-      if (s === "WILD" || s === "ORB") { count++; continue; } // en los bonos el orbe también hace de wild
-      if (target === null) { target = s; count++; continue; }
-      if (s === target) { count++; continue; }
-      break;
-    }
-    let wildRun = 0;
-    for (const s of syms) { if (s === "WILD") wildRun++; else break; }
-    const sym = target ?? "WILD";
-    const pay = count >= 3 ? PAYTABLE[sym]?.[count - 3] ?? 0 : 0;
-    const wildPay = wildRun >= 3 ? PAYTABLE.WILD![wildRun - 3]! : 0;
-    const [finalSym, finalCount, finalPay]: [SymbolId, number, number] = wildPay > pay ? ["WILD" as SymbolId, wildRun, wildPay] : [sym, count, pay];
-    if (finalPay > 0) {
-      let wm = orbSum;
-      for (let r = 0; r < finalCount; r++) wm += wildMult.get(r) ?? 0;
-      lineWins.push({
-        line: li, symbol: finalSym, count: finalCount, win: round2(finalPay * lineBet * scale * (wm || 1)),
-        positions: pl.slice(0, finalCount).map((row, reel) => [reel, row]),
-      });
-    }
+  const wilds: [number, number][] = [];
+  let wildCount = 0; let stickyMult = 0;
+  grid.forEach((col, reel) => {
+    if (wildMult.has(reel)) { wildCount++; stickyMult += wildMult.get(reel) ?? 0; return; }
+    col.forEach((s, row) => { if (s === "WILD" || s === "ORB") { wildCount++; if (s === "WILD") wilds.push([reel, row]); } });
   });
+  const cells = new Map<SymbolId, [number, number][]>();
+  grid.forEach((col, reel) => { if (wildMult.has(reel)) return; col.forEach((s, row) => {
+    if (s === "WILD" || s === "ORB" || s === "SCATTER") return;
+    (cells.get(s) ?? cells.set(s, []).get(s)!).push([reel, row]);
+  }); });
+  const mult = (orbSum + stickyMult) || 1;
+  const pay = (sym: SymbolId, n: number, pos: [number, number][]) => {
+    const p = PAYTABLE[sym]?.[Math.min(n, 9) - MIN_COUNT] ?? 0;
+    if (p > 0) lineWins.push({ line: -1, symbol: sym, count: Math.min(n, 9), win: round2(p * bet / PAY_DIV * scale * mult), positions: pos });
+  };
+  for (const [sym, pos] of cells) if (pos.length >= 2 && pos.length + wildCount >= MIN_COUNT) pay(sym, pos.length + wildCount, [...pos, ...wilds]);
+  if (wildCount >= MIN_COUNT) pay("WILD", wildCount, wilds);
   const scatterCount = grid.flat().filter((s) => s === "SCATTER").length;
   const sc = Math.min(scatterCount, 7);
   const multiplier = orbSum || 1;
-  // Orbes y wilds pegajosos se suman (no se multiplican entre sí) en cada línea; el scatter solo lleva orbes
   const scatterWin = round2((SCATTER_PAY[sc] ?? 0) * bet * scale * multiplier);
   const raw = lineWins.reduce((s, l) => s + l.win, 0) + scatterWin;
   return { grid, lineWins, scatterCount, scatterWin, win: round2(raw), multiplier, freeSpinsAwarded: FREE_SPINS[sc] ?? 0, orbs };
@@ -200,14 +193,16 @@ function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, o
   }
   const step = evaluate(grid, bet, orbs, scale, sticky);
   step.stickyWilds = [...sticky].sort((a, b) => a[0] - b[0]).map(([reel, value]) => ({ reel, value, isNew: fresh.has(reel), battle: battles.get(reel) ?? [value, value] }));
-  if (tumble) {
-    step.tumbles = [];
-    let cur = step;
-    while (cur.lineWins.length && step.tumbles.length < MAX_TUMBLES) {
-      cur = tumbleOnce(cur, bet, scale, sticky, table);
-      step.tumbles.push(cur);
-      step.win = round2(step.win + cur.win);
-    }
+  return tumble ? withTumbles(step, bet, scale, sticky, table) : step;
+}
+// Cascada en todos los modos: base, bono y super bono (máx. MAX_TUMBLES re-giros)
+function withTumbles(step: SpinStep, bet: number, scale: number, sticky: Map<number, number>, table: [number, number][]): SpinStep {
+  step.tumbles = [];
+  let cur = step;
+  while (cur.lineWins.length && step.tumbles.length < MAX_TUMBLES) {
+    cur = tumbleOnce(cur, bet, scale, sticky, table);
+    step.tumbles.push(cur);
+    step.win = round2(step.win + cur.win);
   }
   return step;
 }
@@ -227,7 +222,7 @@ function tumbleOnce(prev: SpinStep, bet: number, scale: number, sticky: Map<numb
       const k = `${reel}-${row}`;
       // Los orbes se quedan pero su multiplicador vuelve a girar en cada re-giro
       if (orbAt.has(k)) { orbs.push({ reel, row, value: pickWeighted(table) }); return s; }
-      if (!remove.has(k) || s === "WILD") return s;
+      if (!remove.has(k)) return s;
       const n = pick(); return n === "WILD" || n === "SCATTER" ? "J" : n;
     }));
   });
@@ -296,7 +291,7 @@ export function startRound(bet: number, buy: BuyType | null = null, cfg?: Partia
   if (!BET_LEVELS.includes(bet)) throw new Error("Apuesta no válida");
   const config = normalizeConfig(cfg);
   const scaleKey = buy ?? "base";
-  const base = evaluate(buy ? forcedTriggerGrid(buy === "super" ? SUPER_LEVEL : 3) : spinGrid(), bet, [], scaleFor(config, scaleKey));
+  const base = withTumbles(evaluate(buy ? forcedTriggerGrid(buy === "super" ? SUPER_LEVEL : 3) : spinGrid(), bet, [], scaleFor(config, scaleKey)), bet, scaleFor(config, scaleKey), new Map(), []);
   const roundId = globalThis.crypto.randomUUID();
   const cost = round2(bet * (buy ? BUY_COST[buy] : 1));
   const timestamp = new Date().toISOString();
@@ -330,7 +325,7 @@ export function finishBonus(st: BonusState, scaleOverride?: number): RoundResult
     const sticky = new Map<number, number>();
     let remaining = st.spins;
     while (remaining > 0 && freeSpins.length < 100) {
-      const step = freeSpin(bet, table, x1000At.has(freeSpins.length), isSuper ? TUNING.SUPER_ORB_CHANCE : TUNING.ORB_CHANCE, scale, sticky, isSuper);
+      const step = freeSpin(bet, table, x1000At.has(freeSpins.length), isSuper ? TUNING.SUPER_ORB_CHANCE : TUNING.ORB_CHANCE, scale, sticky, true);
       freeSpins.push(step);
       remaining += step.freeSpinsAwarded - 1; // reactivación
     }
