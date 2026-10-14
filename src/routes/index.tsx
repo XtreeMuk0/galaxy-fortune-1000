@@ -69,14 +69,11 @@ function Game() {
   const choiceRef = useRef<((c: "gamble" | "play") => void) | null>(null);
   const [charReact, setCharReact] = useState(0);
   const charRef = useRef<HTMLImageElement>(null);
+  const titleRef = useRef<HTMLParagraphElement>(null);
   const reelRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [bolt, setBolt] = useState<{ x1: number; y1: number; x2: number; y2: number; k: number } | null>(null);
-  const fireBolt = (reel: number) => {
-    const c = charRef.current?.getBoundingClientRect(); const r = reelRefs.current[reel]?.getBoundingClientRect();
-    if (!c || !r || c.width === 0) return false;
-    setBolt({ x1: c.left + c.width * 0.507, y1: c.top + c.height * 0.15, x2: r.left + r.width / 2, y2: r.top + r.height / 2, k: Date.now() });
-    return true;
-  };
+  const [casting, setCasting] = useState(false);
+  const [titleZap, setTitleZap] = useState(false);
+  const [bolt, setBolt] = useState<{ from: { x: number; y: number }; to: { x: number; y: number }; k: number } | null>(null);
   const [landed, setLanded] = useState<Set<string>>(new Set());
   const [lastWin, setLastWin] = useState(0);
   const [fs, setFs] = useState<{ left: number; total: number; win: number } | null>(null);
@@ -111,7 +108,7 @@ function Game() {
 
   const animateStep = useCallback(async (step: SpinStep) => {
     const t = turboRef.current;
-    setWinPos(new Set()); setOrbs(new Map()); setMulti(null);
+    setWinPos(new Set()); setOrbs(new Map()); setMulti(null); setCasting(false); setTitleZap(false);
     const held = stickyRef.current;
     setSpinning(Array.from({ length: REELS }, (_, i) => !held.has(i)));
     await sleep(t ? 250 : 900);
@@ -123,17 +120,22 @@ function Game() {
     }
     // Pausa para ver el resultado final (incluido el último rodillo)
     await sleep(t ? 450 : 700);
-    // Wilds nuevos: se expanden al rodillo y libran la batalla de multiplicadores
+    // Wilds nuevos: el personaje alza el brazo, rayo al "1000", el título chispea, rayo al rodillo y batalla
     for (const w of step.stickyWilds ?? []) {
       if (!w.isNew) continue;
+      setCasting(true); setCharReact((n) => n + 1);
+      await sleep(t ? 300 : 550);
+      const c = charRef.current?.getBoundingClientRect(); const ti = titleRef.current?.getBoundingClientRect(); const r = reelRefs.current[w.reel]?.getBoundingClientRect();
+      const tp = ti ? { x: ti.left + ti.width / 2, y: ti.top + ti.height / 2 } : null;
+      if (c && c.width > 0 && tp) { setBolt({ from: { x: c.left + c.width * 0.8, y: c.top + c.height * 0.14 }, to: tp, k: Date.now() }); await sleep(t ? 350 : 650); }
+      setTitleZap(true);
+      if (r && tp) { setBolt({ from: tp, to: { x: r.left + r.width / 2, y: r.top + r.height / 2 }, k: Date.now() }); await sleep(t ? 350 : 650); }
+      setBolt(null);
+      setStickies((m) => new Map(m).set(w.reel, w.value));
       const [low, high] = w.battle;
       setBattle({ low, high, winner: null }); await sleep(t ? 900 : 1600);
       setBattle({ low, high, winner: w.value }); await sleep(t ? 700 : 1200);
       setBattle(null);
-      setCharReact((n) => n + 1);
-      if (fireBolt(w.reel)) await sleep(t ? 350 : 600);
-      setStickies((m) => new Map(m).set(w.reel, w.value));
-      setTimeout(() => setBolt(null), 500);
     }
     const pos = new Set<string>();
     step.lineWins.forEach((l) => l.positions.forEach(([a, b]) => pos.add(`${a}-${b}`)));
