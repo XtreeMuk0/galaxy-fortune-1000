@@ -62,7 +62,10 @@ export interface Orb { reel: number; row: number; value: number }
 export interface SpinStep {
   grid: Grid; lineWins: LineWin[]; scatterCount: number; scatterWin: number;
   win: number; multiplier: number; freeSpinsAwarded: number; orbs: Orb[];
+  stickyWilds?: StickyWild[];
 }
+// Wild expansivo y pegajoso de los giros gratis; al caer libra una batalla entre dos multiplicadores
+export interface StickyWild { reel: number; value: number; isNew: boolean; battle: [number, number] }
 export type BuyType = "bonus" | "super";
 export interface RoundResult {
   config: GameConfig; roundId: string; gameId: string; version: string; bet: number; cost: number; buy: BuyType | null;
@@ -79,6 +82,11 @@ export const ORB_TABLE: [number, number][] = [
 const ORB_TABLE_SUPER = ORB_TABLE.filter(([v]) => v < 1000);
 export const BUY_COST: Record<BuyType, number> = { bonus: 100, super: 500 };
 export const SUPER_X1000_COUNT = 2;
+// Batalla del wild: un multiplicador bajo contra uno alto, gana uno al azar (50/50)
+export const BATTLE_LOW = [2, 3];
+export const BATTLE_HIGH = [5, 10, 25];
+export const MAX_STICKY = 3; // máximo de rodillos wild pegajosos por bono
+export const WILD_FS_KEEP = 0.12; // probabilidad de que un wild caído en giros gratis cuente (controla frecuencia)
 export const MAX_WIN_X = 10000; // premio máximo por ronda (x apuesta)
 
 export type Volatility = "medium" | "high" | "extreme";
@@ -90,7 +98,7 @@ export const DEFAULT_CONFIG: GameConfig = { rtp: 96, volatility: "high" };
 const VOL_TILT: Record<Volatility, number> = { medium: 0.4, high: 1, extreme: 2.5 };
 // Compensación calibrada por simulación para que cada modo dé el RTP objetivo
 export const VOL_CAL: Record<Volatility, Record<"base" | BuyType, number>> = {
-  medium: { base: 1.106, bonus: 1.375, super: 1.026 }, high: { base: 0.962, bonus: 0.986, super: 0.982 }, extreme: { base: 0.796, bonus: 0.628, super: 0.882 },
+  medium: { base: 0.8208, bonus: 0.5989, super: 0.7396 }, high: { base: 0.6886, bonus: 0.4896, super: 0.6958 }, extreme: { base: 0.4673, bonus: 0.3506, super: 0.6281 },
 };
 function tilt(table: [number, number][], v: Volatility): [number, number][] {
   return table.map(([x, w]) => [x, x >= 25 ? w * VOL_TILT[v] : w]);
@@ -109,9 +117,10 @@ function pickWeighted(table: [number, number][]): number {
   return table[0]![0];
 }
 
-function evaluate(grid: Grid, bet: number, orbs: Orb[], scale: number): SpinStep {
+function evaluate(grid: Grid, bet: number, orbs: Orb[], scale: number, wildMult: Map<number, number> = new Map()): SpinStep {
   const lineBet = bet / LINES;
   const lineWins: LineWin[] = [];
+  const orbSum = orbs.reduce((s, o) => s + o.value, 0);
   PAYLINES.forEach((pl, li) => {
     const syms = pl.map((row, reel) => grid[reel]![row]!);
     if (syms[0] === "SCATTER" || syms[0] === "ORB") return;
@@ -131,26 +140,40 @@ function evaluate(grid: Grid, bet: number, orbs: Orb[], scale: number): SpinStep
     const wildPay = wildRun >= 3 ? PAYTABLE.WILD![wildRun - 3]! : 0;
     const [finalSym, finalCount, finalPay]: [SymbolId, number, number] = wildPay > pay ? ["WILD" as SymbolId, wildRun, wildPay] : [sym, count, pay];
     if (finalPay > 0) {
+      let wm = orbSum;
+      for (let r = 0; r < finalCount; r++) wm += wildMult.get(r) ?? 0;
       lineWins.push({
-        line: li, symbol: finalSym, count: finalCount, win: round2(finalPay * lineBet * scale),
+        line: li, symbol: finalSym, count: finalCount, win: round2(finalPay * lineBet * scale * (wm || 1)),
         positions: pl.slice(0, finalCount).map((row, reel) => [reel, row]),
       });
     }
   });
   const scatterCount = grid.flat().filter((s) => s === "SCATTER").length;
   const sc = Math.min(scatterCount, 5);
-  const scatterWin = round2((SCATTER_PAY[sc] ?? 0) * bet * scale);
+  const multiplier = orbSum || 1;
+  // Orbes y wilds pegajosos se suman (no se multiplican entre sí) en cada línea; el scatter solo lleva orbes
+  const scatterWin = round2((SCATTER_PAY[sc] ?? 0) * bet * scale * multiplier);
   const raw = lineWins.reduce((s, l) => s + l.win, 0) + scatterWin;
-  const multiplier = orbs.length ? orbs.reduce((s, o) => s + o.value, 0) : 1;
-  return { grid, lineWins, scatterCount, scatterWin, win: round2(raw * multiplier), multiplier, freeSpinsAwarded: FREE_SPINS[sc] ?? 0, orbs };
+  return { grid, lineWins, scatterCount, scatterWin, win: round2(raw), multiplier, freeSpinsAwarded: FREE_SPINS[sc] ?? 0, orbs };
 }
 
 function spinGrid(): Grid {
   return Array.from({ length: REELS }, () => Array.from({ length: ROWS }, pick));
 }
 
-function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, orbChance: number, scale: number): SpinStep {
+function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, orbChance: number, scale: number, sticky: Map<number, number>): SpinStep {
   const grid = spinGrid();
+  const fresh = new Set<number>();
+  const battles = new Map<number, [number, number]>();
+  grid.forEach((col, reel) => {
+    if (sticky.has(reel)) return;
+    if (col.includes("WILD") && sticky.size < MAX_STICKY && rand() < WILD_FS_KEEP) {
+      const low = BATTLE_LOW[Math.floor(rand() * BATTLE_LOW.length)]!;
+      const high = BATTLE_HIGH[Math.floor(rand() * BATTLE_HIGH.length)]!;
+      sticky.set(reel, rand() < 0.5 ? low : high); fresh.add(reel); battles.set(reel, [low, high]);
+    } else col.forEach((s, row) => { if (s === "WILD") col[row] = "J"; });
+  });
+  for (const reel of sticky.keys()) grid[reel] = Array(ROWS).fill("WILD");
   const orbs: Orb[] = [];
   grid.forEach((col, reel) => col.forEach((s, row) => {
     if (s !== "SCATTER" && s !== "WILD" && rand() < orbChance) {
@@ -160,10 +183,12 @@ function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, o
   if (forceX1000) {
     const free: [number, number][] = [];
     grid.forEach((col, reel) => col.forEach((s, row) => { if (s !== "SCATTER" && s !== "WILD" && s !== "ORB") free.push([reel, row]); }));
-    const [reel, row] = free[Math.floor(rand() * free.length)]!;
-    grid[reel]![row] = "ORB"; orbs.push({ reel, row, value: 1000 });
+    const spot = free[Math.floor(rand() * free.length)];
+    if (spot) { const [reel, row] = spot; grid[reel]![row] = "ORB"; orbs.push({ reel, row, value: 1000 }); }
   }
-  return evaluate(grid, bet, orbs, scale);
+  const step = evaluate(grid, bet, orbs, scale, sticky);
+  step.stickyWilds = [...sticky].sort((a, b) => a[0] - b[0]).map(([reel, value]) => ({ reel, value, isNew: fresh.has(reel), battle: battles.get(reel) ?? [value, value] }));
+  return step;
 }
 
 function forcedTriggerGrid(): Grid {
@@ -187,9 +212,10 @@ export function playRound(bet: number, buy: BuyType | null = null, cfg?: Partial
     while (spots.size < SUPER_X1000_COUNT) spots.add(Math.floor(rand() * base.freeSpinsAwarded));
     spots.forEach((i) => { if (rand() < TUNING.SUPER_X1000_CHANCE) x1000At.add(i); });
   }
+  const sticky = new Map<number, number>();
   let remaining = base.freeSpinsAwarded;
   while (remaining > 0 && freeSpins.length < 100) {
-    const step = freeSpin(bet, table, x1000At.has(freeSpins.length), buy === "super" ? TUNING.SUPER_ORB_CHANCE : TUNING.ORB_CHANCE, scale);
+    const step = freeSpin(bet, table, x1000At.has(freeSpins.length), buy === "super" ? TUNING.SUPER_ORB_CHANCE : TUNING.ORB_CHANCE, scale, sticky);
     freeSpins.push(step);
     remaining += step.freeSpinsAwarded - 1; // reactivación
   }
