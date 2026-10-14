@@ -130,12 +130,7 @@ function Game() {
       prev.lineWins.forEach((l) => l.positions.forEach(([a, b]) => { const s = prev.grid[a]![b]; if (!held.has(a) && s !== "ORB" && s !== "WILD") removed.add(`${a}-${b}`); }));
       setWinPos(new Set()); setMulti(null);
       setGone(removed); await sleep(t ? 300 : 600);
-      // Los de arriba caen; los huecos quedan arriba y giran
-      const holes = new Set<string>();
-      for (let r = 0; r < REELS; r++) {
-        const n = [...removed].filter((k) => k.startsWith(`${r}-`)).length;
-        for (let row = 0; row < n; row++) holes.add(`${r}-${row}`);
-      }
+      const holes = removed;
       setGone(new Set()); setMini(holes);
       setGrid(tb.grid); setOrbs(new Map(tb.orbs.map((o) => [`${o.reel}-${o.row}`, o.value])));
       await sleep(t ? 450 : 900);
@@ -243,13 +238,13 @@ function Game() {
                     <div className="animate-land grid h-full grid-rows-5">
                       {col.map((s, row) => {
                         const k = `${r}-${row}`;
-                        if (gone.has(k)) return <div key={row} className="scale-50 opacity-0 transition-all duration-300" />;
+                        if (gone.has(k)) return <div key={row} className="animate-vanish"><SlotSymbol id={s} /></div>;
                         if (mini.has(k)) return (
-                          <div key={row} className="overflow-hidden"><div className="animate-reel-spin flex flex-col">
+                          <div key={row} className="overflow-hidden rounded-lg bg-primary/15 shadow-[inset_0_0_12px_var(--color-primary)]"><div className="animate-reel-spin flex flex-col blur-[1px]">
                             {[...ALL_SYMBOLS, ...ALL_SYMBOLS].map((x, i) => <div key={i} className="h-[3.6rem] sm:h-[6.4rem]"><SlotSymbol id={x} /></div>)}
                           </div></div>
                         );
-                        return <SlotSymbol key={row} id={s} value={orbs.get(k)} win={winPos.has(k)} className={winPos.size && !winPos.has(k) ? "opacity-40" : ""} />;
+                        return <SlotSymbol key={`${row}-${s}`} id={s} value={orbs.get(k)} win={winPos.has(k)} className={winPos.size && !winPos.has(k) ? "opacity-40" : ""} />;
                       })}
                     </div>
                   )}

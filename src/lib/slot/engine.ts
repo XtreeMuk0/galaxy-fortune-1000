@@ -211,7 +211,7 @@ function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, o
   return step;
 }
 
-// Cascada (Super Bonus): los símbolos premiados desaparecen y caen nuevos desde arriba.
+// Cascada (Super Bonus): los símbolos premiados desaparecen y re-giran en su mismo hueco.
 // Wilds pegajosos y orbes se quedan; los símbolos nuevos no traen wilds ni scatters.
 export const MAX_TUMBLES = 20;
 function tumbleOnce(prev: SpinStep, bet: number, scale: number, sticky: Map<number, number>): SpinStep {
@@ -221,18 +221,13 @@ function tumbleOnce(prev: SpinStep, bet: number, scale: number, sticky: Map<numb
   const grid: Grid = []; const orbs: Orb[] = [];
   prev.grid.forEach((col, reel) => {
     if (sticky.has(reel)) { grid.push([...col]); return; }
-    const kept: { s: SymbolId; v?: number }[] = [];
-    col.forEach((s, row) => {
+    // Re-giro en el mismo hueco: nada se mueve, solo se reemplazan los premiados
+    grid.push(col.map((s, row) => {
       const k = `${reel}-${row}`;
-      if (remove.has(k) && s !== "ORB" && s !== "WILD") return;
-      kept.push(orbAt.has(k) ? { s, v: orbAt.get(k)! } : { s });
-    });
-    const fresh: { s: SymbolId }[] = Array.from({ length: ROWS - kept.length }, () => {
-      const s = pick(); return { s: s === "WILD" || s === "SCATTER" ? "J" : s };
-    });
-    const next = [...fresh, ...kept];
-    next.forEach((c, row) => { const v = (c as { v?: number }).v; if (c.s === "ORB" && v !== undefined) orbs.push({ reel, row, value: v }); });
-    grid.push(next.map((c) => c.s));
+      if (orbAt.has(k)) { orbs.push({ reel, row, value: orbAt.get(k)! }); return s; }
+      if (!remove.has(k) || s === "WILD") return s;
+      const n = pick(); return n === "WILD" || n === "SCATTER" ? "J" : n;
+    }));
   });
   const st = evaluate(grid, bet, orbs, scale, sticky);
   st.scatterWin = 0; st.freeSpinsAwarded = 0;
