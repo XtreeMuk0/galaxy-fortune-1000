@@ -131,9 +131,9 @@ function pickWeighted(table: [number, number][]): number {
 
 // "Paga en cualquier sitio": se cuentan los símbolos iguales en toda la rejilla.
 // 5 = pago de 3 en línea, 6 = 4, 7 = 5, 8 = 6, 9+ = 7. WILD (y ORB en bonos) sustituyen; un carrete wild pegajoso cuenta como 1.
-export const MIN_COUNT = 6;
-// 6, 7, 8, 9-10, 11+ iguales
-export const tierOf = (n: number) => (n >= 11 ? 4 : n >= 9 ? 3 : n - MIN_COUNT);
+export const MIN_COUNT = 8;
+// 8, 9, 10, 11-12, 13+ iguales
+export const tierOf = (n: number) => (n >= 13 ? 4 : n >= 11 ? 3 : n - MIN_COUNT);
 export const PAY_DIV = 50;
 function evaluate(grid: Grid, bet: number, orbs: Orb[], scale: number, wildMult: Map<number, number> = new Map()): SpinStep {
   const lineWins: LineWin[] = [];
@@ -154,7 +154,7 @@ function evaluate(grid: Grid, bet: number, orbs: Orb[], scale: number, wildMult:
     const p = PAYTABLE[sym]?.[tierOf(n)] ?? 0;
     if (p > 0) lineWins.push({ line: -1, symbol: sym, count: n, win: round2(p * bet / PAY_DIV * scale * mult), positions: pos });
   };
-  for (const [sym, pos] of cells) if (pos.length >= 3 && pos.length + wildCount >= MIN_COUNT) pay(sym, pos.length + wildCount, [...pos, ...wilds]);
+  for (const [sym, pos] of cells) if (pos.length >= 4 && pos.length + wildCount >= MIN_COUNT) pay(sym, pos.length + wildCount, [...pos, ...wilds]);
   if (wildCount >= MIN_COUNT) pay("WILD", wildCount, wilds);
   const scatterCount = grid.flat().filter((s) => s === "SCATTER").length;
   const sc = Math.min(scatterCount, 7);
