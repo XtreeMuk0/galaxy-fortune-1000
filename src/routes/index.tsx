@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, History, Info, Zap, Code2 } from "lucide-react";
 import bg from "@/assets/bg-galaxias.jpg";
 import logo from "@/assets/sym-logo.png.asset.json";
+import character from "@/assets/character.png";
 import { SlotSymbol } from "@/components/slot/SlotSymbol";
 import { GambleWheel } from "@/components/slot/GambleWheel";
 import { ALL_SYMBOLS, SYMBOL_NAME } from "@/components/slot/symbols";
@@ -67,6 +68,15 @@ function Game() {
   const [gambleUI, setGambleUI] = useState<GambleUI | null>(null);
   const choiceRef = useRef<((c: "gamble" | "play") => void) | null>(null);
   const [charReact, setCharReact] = useState(0);
+  const charRef = useRef<HTMLImageElement>(null);
+  const reelRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [bolt, setBolt] = useState<{ x1: number; y1: number; x2: number; y2: number; k: number } | null>(null);
+  const fireBolt = (reel: number) => {
+    const c = charRef.current?.getBoundingClientRect(); const r = reelRefs.current[reel]?.getBoundingClientRect();
+    if (!c || !r || c.width === 0) return false;
+    setBolt({ x1: c.left + c.width * 0.507, y1: c.top + c.height * 0.15, x2: r.left + r.width / 2, y2: r.top + r.height / 2, k: Date.now() });
+    return true;
+  };
   const [landed, setLanded] = useState<Set<string>>(new Set());
   const [lastWin, setLastWin] = useState(0);
   const [fs, setFs] = useState<{ left: number; total: number; win: number } | null>(null);
@@ -120,8 +130,10 @@ function Game() {
       setBattle({ low, high, winner: null }); await sleep(t ? 900 : 1600);
       setBattle({ low, high, winner: w.value }); await sleep(t ? 700 : 1200);
       setBattle(null);
-      setStickies((m) => new Map(m).set(w.reel, w.value));
       setCharReact((n) => n + 1);
+      if (fireBolt(w.reel)) await sleep(t ? 350 : 600);
+      setStickies((m) => new Map(m).set(w.reel, w.value));
+      setTimeout(() => setBolt(null), 500);
     }
     const pos = new Set<string>();
     step.lineWins.forEach((l) => l.positions.forEach(([a, b]) => pos.add(`${a}-${b}`)));
@@ -254,9 +266,25 @@ function Game() {
       {/* Personaje del estudio: flota en el fondo y reacciona a cada wild pegajoso */}
       <div className="pointer-events-none absolute bottom-0 left-[-6rem] -z-10 hidden w-[34rem] opacity-90 lg:block xl:left-0">
         <div className="animate-char-float">
-          <img key={charReact} src={logo.url} alt="" className={cn("w-full drop-shadow-[0_0_40px_var(--color-primary)]", charReact > 0 && "animate-char-react")} />
+          <div className="animate-char-breathe origin-bottom">
+            <img ref={charRef} key={charReact} src={character} alt="" className={cn("w-full drop-shadow-[0_0_40px_var(--color-primary)]", charReact > 0 && "animate-char-react")} />
+          </div>
         </div>
       </div>
+      {bolt && (() => {
+        const n = 9; const pts = Array.from({ length: n + 1 }, (_, i) => {
+          const f = i / n; const j = i === 0 || i === n ? 0 : (Math.random() - 0.5) * 60;
+          return `${bolt.x1 + (bolt.x2 - bolt.x1) * f + j},${bolt.y1 + (bolt.y2 - bolt.y1) * f + j}`;
+        }).join(" ");
+        return (
+          <svg key={bolt.k} className="pointer-events-none fixed inset-0 z-40 h-full w-full animate-bolt">
+            <polyline points={pts} fill="none" stroke="var(--color-primary)" strokeWidth="14" strokeLinejoin="round" opacity="0.5" style={{ filter: "blur(6px)" }} />
+            <polyline points={pts} fill="none" stroke="var(--color-foreground)" strokeWidth="4" strokeLinejoin="round" />
+            <circle cx={bolt.x1} cy={bolt.y1} r="22" fill="var(--color-primary)" opacity="0.8" className="animate-ping" />
+            <circle cx={bolt.x2} cy={bolt.y2} r="40" fill="var(--color-accent)" opacity="0.6" className="animate-ping" />
+          </svg>
+        );
+      })()}
 
       <header className="relative mb-4 text-center">
         <h1 className="font-display text-gold text-4xl font-black tracking-widest drop-shadow-2xl sm:text-6xl">GALAXY FORTUNE</h1>
@@ -274,7 +302,7 @@ function Game() {
             )}
             <div className="grid grid-cols-7 gap-1 sm:gap-2">
               {grid.map((col, r) => (
-                <div key={r} className="relative h-[18rem] overflow-hidden rounded-xl border border-border bg-background/40 sm:h-[32rem]">
+                <div key={r} ref={(el) => { reelRefs.current[r] = el; }} className="relative h-[18rem] overflow-hidden rounded-xl border border-border bg-background/40 sm:h-[32rem]">
                   {stickies.has(r) && !spinning[r] ? (
                     <div className="animate-land relative flex h-full flex-col items-center justify-center bg-accent/20 shadow-gold">
                       <SlotSymbol id="WILD" className="h-2/3" win={[...winPos].some((k) => k.startsWith(`${r}-`))} />

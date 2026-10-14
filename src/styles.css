@@ -186,3 +186,8 @@
   100% { transform: scale(1); filter: brightness(1); }
 }
 .animate-char-react { animation: char-react 1.6s ease-out; }
+
+@keyframes char-breathe { 0%,100% { transform: scale(1,1) rotate(0); } 25% { transform: scale(1.02,0.99) rotate(-1.5deg); } 50% { transform: scale(0.99,1.025) rotate(0); } 75% { transform: scale(1.02,0.99) rotate(1.5deg); } }
+.animate-char-breathe { animation: char-breathe 3.2s ease-in-out infinite; }
+@keyframes bolt { 0% { opacity: 0; } 10%,30%,60% { opacity: 1; } 20%,45% { opacity: 0.3; } 100% { opacity: 0; } }
+.animate-bolt { animation: bolt 0.9s ease-out forwards; }
