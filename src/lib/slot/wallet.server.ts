@@ -61,3 +61,20 @@ export async function settleRound(p: LaunchParams, secret: string, round: RoundR
   }
   void debit;
 }
+
+/** Cobro inicial de una ronda con bono pendiente (la apuesta de la ruleta es gratis). */
+export async function debitRound(p: LaunchParams, secret: string, r: { roundId: string; cost: number; buy: string | null; gameId: string }) {
+  return call(p, secret, "debit", { roundId: r.roundId, transactionId: `${r.roundId}-D`, amount: r.cost, buy: r.buy, gameId: r.gameId });
+}
+/** Pago final al terminar el bono (incluye apuestas de la ruleta en el detalle). */
+export async function creditRound(p: LaunchParams, secret: string, round: RoundResult) {
+  try {
+    return await call(p, secret, "credit", {
+      roundId: round.roundId, transactionId: `${round.roundId}-C`, amount: round.totalWin, gameId: round.gameId, roundClosed: true,
+      details: { base: round.base, gambles: round.gambles, bonusLevel: round.bonusLevel, bonusSpins: round.bonusSpins, freeSpins: round.freeSpins, version: round.version, timestamp: round.timestamp },
+    });
+  } catch (e) {
+    await call(p, secret, "rollback", { roundId: round.roundId, transactionId: `${round.roundId}-D`, amount: round.cost }).catch(() => {});
+    throw e;
+  }
+}
