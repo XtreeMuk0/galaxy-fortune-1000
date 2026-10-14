@@ -90,7 +90,7 @@ export const ORB_TABLE: [number, number][] = [
 ];
 // En la super compra los orbes normales no traen x1000; se garantizan 2 x1000 en tiradas aleatorias
 const ORB_TABLE_SUPER = ORB_TABLE.filter(([v]) => v < 1000);
-export const BUY_COST: Record<BuyType, number> = { bonus: 100, super: 500 };
+export const BUY_COST: Record<BuyType, number> = { bonus: 100, super: 482.5000 };
 export const SUPER_X1000_COUNT = 2;
 // Batalla del wild: un multiplicador bajo contra uno alto, gana uno al azar (50/50)
 export const BATTLE_LOW = [2, 3];
@@ -109,7 +109,7 @@ export const DEFAULT_CONFIG: GameConfig = { rtp: 96, volatility: "high" };
 const VOL_TILT: Record<Volatility, number> = { medium: 0.4, high: 1, extreme: 2.5 };
 // Compensación calibrada por simulación para que cada modo dé el RTP objetivo
 export const VOL_CAL: Record<Volatility, Record<"base" | BuyType, number>> = {
-  medium: { base: 0.3653, bonus: 0.3006, super: 0.2111 }, high: { base: 0.2377, bonus: 0.2413, super: 0.204 }, extreme: { base: 0.2002, bonus: 0.177, super: 0.1778 },
+  medium: { base: 0.3653, bonus: 0.3006, super: 0.2037 }, high: { base: 0.2377, bonus: 0.2413, super: 0.1969 }, extreme: { base: 0.2002, bonus: 0.177, super: 0.1716 },
 };
 function tilt(table: [number, number][], v: Volatility): [number, number][] {
   return table.map(([x, w]) => [x, x >= 25 ? w * VOL_TILT[v] : w]);
