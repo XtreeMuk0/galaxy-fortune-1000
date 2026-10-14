@@ -214,7 +214,7 @@ function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, o
 
 // Cascada (Super Bonus): los símbolos premiados desaparecen y re-giran en su mismo hueco.
 // Wilds pegajosos y orbes se quedan; los símbolos nuevos no traen wilds ni scatters.
-export const MAX_TUMBLES = 20;
+export const MAX_TUMBLES = 5;
 function tumbleOnce(prev: SpinStep, bet: number, scale: number, sticky: Map<number, number>, table: [number, number][]): SpinStep {
   const remove = new Set<string>();
   prev.lineWins.forEach((l) => l.positions.forEach(([a, b]) => remove.add(`${a}-${b}`)));
@@ -341,8 +341,10 @@ export function finishBonus(st: BonusState, scaleOverride?: number): RoundResult
   }
   // Si no llega al mínimo, se suben proporcionalmente los premios del bono (se ven como premios normales)
   const fsWin = round2(totalWin - st.base.win);
+  // Objetivo aleatorio desde el mínimo (60 %) hacia arriba, sin pasar del premio máximo
+  const target = Math.min(round2(st.cost * (BUY_MIN_RETURN + rand() * 0.4)), round2(bet * MAX_WIN_X));
   if (totalWin < min && fsWin > 0) {
-    const f = (min - st.base.win) / fsWin;
+    const f = (target - st.base.win) / fsWin;
     const bump = (x: SpinStep) => { x.win = round2(x.win * f); x.scatterWin = round2(x.scatterWin * f); x.lineWins.forEach((l) => { l.win = round2(l.win * f); }); x.tumbles?.forEach(bump); };
     freeSpins.forEach(bump);
     totalWin = round2(st.base.win + freeSpins.reduce((s, x) => s + x.win, 0));
