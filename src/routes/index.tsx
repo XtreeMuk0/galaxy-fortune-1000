@@ -70,12 +70,14 @@ function Game() {
   const [gambleUI, setGambleUI] = useState<GambleUI | null>(null);
   const choiceRef = useRef<((c: "gamble" | "play") => void) | null>(null);
   const [charReact, setCharReact] = useState(0);
-  const [fx, setFx] = useState<{ sym: string; k: number } | null>(null);
-  const playFx = (lw: { symbol: string }[]) => {
+  const [fx, setFx] = useState<{ sym: string; k: number; win: number; x: number } | null>(null);
+  const betRef = useRef(0);
+  const playFx = (lw: { symbol: string; win: number }[]) => {
     const order = ["WILD", "ASTRO", "PLANET", "UFO", "COMET", "CRYSTAL"];
     const best = order.find((o) => lw.some((l) => l.symbol === o));
     if (!best) return;
-    const k = Date.now(); setFx({ sym: best, k });
+    const k = Date.now(); const win = Math.round(lw.reduce((a, l) => a + l.win, 0) * 100) / 100;
+    setFx({ sym: best, k, win, x: betRef.current ? Math.round((win / betRef.current) * 100) / 100 : 0 });
     setTimeout(() => setFx((f) => (f?.k === k ? null : f)), 2200);
   };
   const [stars, setStars] = useState<{ k: number; x: number; y: number; kind: number }[]>([]);
@@ -307,7 +309,15 @@ function Game() {
       </div>
       {fx && SYMBOL_IMG[fx.sym as SymbolId] && (
         <div key={fx.k} className="pointer-events-none fixed inset-0 z-30 overflow-hidden">
-          <img src={SYMBOL_IMG[fx.sym as SymbolId]} alt="" className={`fx-sym fx-${fx.sym.toLowerCase()} absolute left-1/2 top-1/2 w-64 drop-shadow-[0_0_40px_var(--color-primary)]`} />
+          <div className={`fx-sym fx-${fx.sym.toLowerCase()} absolute left-1/2 top-1/2 h-64 w-64`}>
+            <div className="fx-fire absolute -inset-10 rounded-full" />
+            <div className="fx-fire fx-fire-2 absolute -inset-6 rounded-full" />
+            <img src={SYMBOL_IMG[fx.sym as SymbolId]} alt="" className="relative h-full w-full object-contain drop-shadow-[0_0_40px_var(--color-primary)]" />
+          </div>
+          <div className="fx-label absolute left-1/2 top-[18%] text-center">
+            <p className="font-display text-gold text-6xl font-black drop-shadow-[0_0_20px_var(--color-destructive)] sm:text-8xl">x{fx.x.toLocaleString("es-ES")}</p>
+            <p className="font-display text-3xl font-black text-primary drop-shadow-[0_0_14px_var(--color-destructive)] sm:text-5xl">+{fmt(fx.win)}</p>
+          </div>
         </div>
       )}
       {bolt && (
