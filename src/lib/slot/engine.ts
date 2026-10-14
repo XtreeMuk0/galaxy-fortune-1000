@@ -1,12 +1,12 @@
 // Galaxias — motor matemático puro. Se ejecuta en el servidor (autoritativo).
-// 6 rodillos x 5 filas, 50 líneas fijas, WILD sustituye, SCATTER x3+ = giros gratis con orbes multiplicadores.
+// 7 rodillos x 5 filas, 50 líneas fijas, WILD sustituye, SCATTER x3+ = giros gratis con orbes multiplicadores.
 
 export type SymbolId =
   | "WILD" | "SCATTER" | "ASTRO" | "PLANET" | "UFO" | "COMET" | "CRYSTAL"
   | "A" | "K" | "Q" | "J" | "ORB";
 
 export const ROWS = 5;
-export const REELS = 6;
+export const REELS = 7;
 export const GAME_ID = "galaxy-fortune-1000";
 export const GAME_VERSION = "1.0.0";
 
@@ -42,7 +42,7 @@ const SHAPES: number[][] = [
 export const PAYLINES: number[][] = (() => {
   const out: number[][] = []; const seen = new Set<string>();
   for (let off = 0; off < 5; off++) for (const sh of SHAPES) {
-    const l = sh.map((d) => d + off); if (Math.max(...l) > 4) continue;
+    const l = [...sh, sh[0]!].map((d) => d + off); if (Math.max(...l) > 4) continue;
     const k = l.join(); if (!seen.has(k)) { seen.add(k); out.push(l); }
   }
   out.sort((a, b) => Number(new Set(a).size > 1) - Number(new Set(b).size > 1));

@@ -54,7 +54,7 @@ POST /balance   → { "balance": 100.00 }`}</Code>
 
       <h2 className="font-display text-xl text-primary">4. Datos del juego</h2>
       <ul className="list-disc space-y-1 pl-5 text-sm">
-        <li>6×5, 50 líneas fijas, apuestas de 0,20 a 100</li>
+        <li>7×5, 50 líneas fijas, apuestas de 0,20 a 100</li>
         <li>Wild sustituye; Scatter 3/4/5 = 10/15/20 giros gratis con orbes multiplicadores x2 a x1000 (reactivables)</li>
         <li>Compra de bonus: 100× la apuesta. Super Bonus: 500× con 2 orbes x1000 aleatorios. En el <code>/debit</code> se envía el coste real y el campo <code>buy</code>.</li>
         <li>RTP configurable por el casino: 94%, 95%, 96% o 97% (por defecto 96%), igual en juego normal y en ambas compras; premio máximo 10.000× la apuesta.</li>
