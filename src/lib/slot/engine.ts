@@ -83,9 +83,10 @@ const ORB_TABLE_SUPER = ORB_TABLE.filter(([v]) => v < 1000);
 export const BUY_COST: Record<BuyType, number> = { bonus: 100, super: 500 };
 export const SUPER_X1000_COUNT = 2;
 // Batalla del wild: un multiplicador bajo contra uno alto, gana uno al azar (50/50)
-export const BATTLE_LOW = [2, 3, 4, 5];
-export const BATTLE_HIGH = [10, 15, 20, 25, 50];
-export const WILD_FS_KEEP = 0.3; // probabilidad de que un wild caído en giros gratis cuente (controla frecuencia)
+export const BATTLE_LOW = [2, 3];
+export const BATTLE_HIGH = [5, 10, 25];
+export const MAX_STICKY = 3; // máximo de rodillos wild pegajosos por bono
+export const WILD_FS_KEEP = 0.12; // probabilidad de que un wild caído en giros gratis cuente (controla frecuencia)
 export const MAX_WIN_X = 10000; // premio máximo por ronda (x apuesta)
 
 export type Volatility = "medium" | "high" | "extreme";
@@ -164,7 +165,7 @@ function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, o
   const battles = new Map<number, [number, number]>();
   grid.forEach((col, reel) => {
     if (sticky.has(reel)) return;
-    if (col.includes("WILD") && rand() < WILD_FS_KEEP) {
+    if (col.includes("WILD") && sticky.size < MAX_STICKY && rand() < WILD_FS_KEEP) {
       const low = BATTLE_LOW[Math.floor(rand() * BATTLE_LOW.length)]!;
       const high = BATTLE_HIGH[Math.floor(rand() * BATTLE_HIGH.length)]!;
       sticky.set(reel, rand() < 0.5 ? low : high); fresh.add(reel); battles.set(reel, [low, high]);
@@ -180,8 +181,8 @@ function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, o
   if (forceX1000) {
     const free: [number, number][] = [];
     grid.forEach((col, reel) => col.forEach((s, row) => { if (s !== "SCATTER" && s !== "WILD" && s !== "ORB") free.push([reel, row]); }));
-    const [reel, row] = free[Math.floor(rand() * free.length)]!;
-    grid[reel]![row] = "ORB"; orbs.push({ reel, row, value: 1000 });
+    const spot = free[Math.floor(rand() * free.length)];
+    if (spot) { const [reel, row] = spot; grid[reel]![row] = "ORB"; orbs.push({ reel, row, value: 1000 }); }
   }
   const step = evaluate(grid, bet, orbs, scale, sticky);
   step.stickyWilds = [...sticky].sort((a, b) => a[0] - b[0]).map(([reel, value]) => ({ reel, value, isNew: fresh.has(reel), battle: battles.get(reel) ?? [value, value] }));
