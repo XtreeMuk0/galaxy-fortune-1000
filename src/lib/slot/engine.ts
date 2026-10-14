@@ -12,8 +12,8 @@ export const GAME_VERSION = "1.0.0";
 
 // Pesos por rodillo (tira virtual)
 const WEIGHTS: Record<Exclude<SymbolId, "ORB">, number> = {
-  WILD: 1, SCATTER: 1, ASTRO: 8, PLANET: 9, UFO: 10, COMET: 10, CRYSTAL: 11,
-  A: 11, K: 11, Q: 12, J: 12,
+  WILD: 2, SCATTER: 1, ASTRO: 4, PLANET: 6, UFO: 7, COMET: 8, CRYSTAL: 9,
+  A: 12, K: 13, Q: 14, J: 15,
 };
 
 // Pagos en multiplicador de la apuesta por línea (3,4,5 iguales)
