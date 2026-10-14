@@ -9,7 +9,7 @@ import charCast from "@/assets/char-cast.png";
 import { EpicBolt } from "@/components/slot/EpicBolt";
 import { SlotSymbol } from "@/components/slot/SlotSymbol";
 import { GambleWheel } from "@/components/slot/GambleWheel";
-import { ALL_SYMBOLS, SYMBOL_NAME } from "@/components/slot/symbols";
+import { ALL_SYMBOLS, SYMBOL_IMG, SYMBOL_NAME } from "@/components/slot/symbols";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -70,6 +70,27 @@ function Game() {
   const [gambleUI, setGambleUI] = useState<GambleUI | null>(null);
   const choiceRef = useRef<((c: "gamble" | "play") => void) | null>(null);
   const [charReact, setCharReact] = useState(0);
+  const [fx, setFx] = useState<{ sym: string; k: number } | null>(null);
+  const playFx = (lw: { symbol: string }[]) => {
+    const order = ["WILD", "ASTRO", "PLANET", "UFO", "COMET", "CRYSTAL"];
+    const best = order.find((o) => lw.some((l) => l.symbol === o));
+    if (!best) return;
+    const k = Date.now(); setFx({ sym: best, k });
+    setTimeout(() => setFx((f) => (f?.k === k ? null : f)), 2200);
+  };
+  const [stars, setStars] = useState<{ k: number; x: number; y: number; kind: number }[]>([]);
+  useEffect(() => {
+    let alive = true; let id: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      if (!alive) return;
+      const k = Date.now();
+      setStars((st) => [...st.slice(-6), { k, x: Math.random() * 100, y: Math.random() * 60, kind: Math.floor(Math.random() * 3) }]);
+      setTimeout(() => setStars((st) => st.filter((x) => x.k !== k)), 4000);
+      id = setTimeout(tick, 1500 + Math.random() * 3500);
+    };
+    id = setTimeout(tick, 1000);
+    return () => { alive = false; clearTimeout(id); };
+  }, []);
   const charRef = useRef<HTMLImageElement>(null);
   const titleRef = useRef<HTMLParagraphElement>(null);
   const reelRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -147,6 +168,7 @@ function Game() {
       step.orbs.forEach((o) => pos.add(`${o.reel}-${o.row}`));
       setWinPos(pos); await sleep(t ? 400 : 700); setMulti(step.multiplier); await sleep(t ? 900 : 1500);
     } else setWinPos(pos);
+    playFx(step.lineWins);
     if (step.win > 0) await sleep(t ? 800 : 1300);
     // Cascada (Super Bonus): se eliminan los premiados y solo los huecos hacen un mini giro
     let prev = step;
@@ -163,7 +185,7 @@ function Game() {
       await sleep(t ? 300 : 500);
       const p = new Set<string>();
       tb.lineWins.forEach((l) => l.positions.forEach(([a, b]) => p.add(`${a}-${b}`)));
-      if (tb.win > 0) { tb.orbs.forEach((o) => p.add(`${o.reel}-${o.row}`)); setWinPos(p); if (tb.orbs.length) setMulti(tb.multiplier); await sleep(t ? 800 : 1300); }
+      if (tb.win > 0) { playFx(tb.lineWins); tb.orbs.forEach((o) => p.add(`${o.reel}-${o.row}`)); setWinPos(p); if (tb.orbs.length) setMulti(tb.multiplier); await sleep(t ? 800 : 1300); }
       setLanded(new Set());
       prev = tb;
     }
@@ -269,12 +291,25 @@ function Game() {
       <div className="absolute inset-0 -z-10 bg-background/30" />
       {/* Personaje del estudio: respira en reposo; al caer un wild pegajoso alza el brazo y lanza el rayo */}
       <div className="pointer-events-none absolute bottom-0 left-[-6rem] -z-10 hidden w-[34rem] opacity-95 lg:block xl:left-0">
-        <div className="animate-sway">
-          <div className="animate-breathe-real">
+        <div>
+          <div>
             <img ref={charRef} key={casting ? `c${charReact}` : "idle"} src={casting ? charCast : charIdle} alt="" className={cn("w-full drop-shadow-[0_0_40px_var(--color-primary)]", casting && "animate-cast")} />
           </div>
         </div>
       </div>
+      {/* Vida del fondo: estrellas fugaces, destellos y pulsos de nebulosa aleatorios */}
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        {stars.map((st) => st.kind === 0
+          ? <span key={st.k} className="fx-shoot absolute h-0.5 w-32 rounded-full bg-gradient-to-r from-transparent via-foreground to-foreground" style={{ left: `${st.x}%`, top: `${st.y}%` }} />
+          : st.kind === 1
+            ? <span key={st.k} className="fx-sparkle absolute h-2 w-2 rounded-full bg-foreground shadow-[0_0_14px_6px_var(--color-secondary)]" style={{ left: `${st.x}%`, top: `${st.y + 20}%` }} />
+            : <span key={st.k} className="fx-nebula absolute h-96 w-96 rounded-full bg-accent/20 blur-3xl" style={{ left: `${st.x - 10}%`, top: `${st.y}%` }} />)}
+      </div>
+      {fx && SYMBOL_IMG[fx.sym as SymbolId] && (
+        <div key={fx.k} className="pointer-events-none fixed inset-0 z-30 overflow-hidden">
+          <img src={SYMBOL_IMG[fx.sym as SymbolId]} alt="" className={`fx-sym fx-${fx.sym.toLowerCase()} absolute left-1/2 top-1/2 w-64 drop-shadow-[0_0_40px_var(--color-primary)]`} />
+        </div>
+      )}
       {bolt && (
         <>
           <div key={`f${bolt.k}`} className="pointer-events-none fixed inset-0 z-40 bg-foreground/40 animate-flash" />

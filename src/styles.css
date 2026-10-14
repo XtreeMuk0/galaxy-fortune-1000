@@ -202,3 +202,26 @@
 .animate-zap-title { animation: zap-title 0.35s steps(1) infinite; }
 @keyframes flash-screen { 0% { opacity: 0.55; } 100% { opacity: 0; } }
 .animate-flash { animation: flash-screen 0.35s ease-out forwards; }
+
+/* Vida del fondo */
+@keyframes shoot { 0% { transform: translate(0,0) rotate(20deg); opacity: 0; } 10% { opacity: 1; } 100% { transform: translate(40vw,15vw) rotate(20deg); opacity: 0; } }
+.fx-shoot { animation: shoot 1.4s ease-in forwards; }
+@keyframes sparkle { 0%,100% { transform: scale(0); opacity: 0; } 50% { transform: scale(1.6); opacity: 1; } }
+.fx-sparkle { animation: sparkle 1.8s ease-in-out forwards; }
+@keyframes nebula { 0%,100% { opacity: 0; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.1); } }
+.fx-nebula { animation: nebula 4s ease-in-out forwards; }
+
+/* Animaciones de premio por símbolo */
+.fx-sym { translate: -50% -50%; opacity: 0; }
+@keyframes fx-ufo { 0% { transform: translate(-70vw,-30vh) scale(.2) rotate(-20deg); opacity: 0; } 20% { opacity: 1; } 55% { transform: translate(0,0) scale(1.2) rotate(8deg); } 70% { transform: translate(0,-2vh) scale(1.1) rotate(-6deg); opacity: 1; } 100% { transform: translate(70vw,-40vh) scale(.2) rotate(20deg); opacity: 0; } }
+.fx-ufo { animation: fx-ufo 2.1s ease-in-out forwards; }
+@keyframes fx-comet { 0% { transform: translate(50vw,-60vh) rotate(-30deg) scale(.6); opacity: 0; filter: brightness(2); } 15% { opacity: 1; } 70% { transform: translate(-5vw,5vh) rotate(-30deg) scale(1.3); filter: brightness(1.6) drop-shadow(0 0 60px var(--color-accent)); } 80% { transform: translate(-6vw,6vh) scale(1.6); opacity: 1; } 100% { transform: translate(-6vw,6vh) scale(2.4); opacity: 0; filter: brightness(3); } }
+.fx-comet { animation: fx-comet 1.8s cubic-bezier(.5,0,.9,.6) forwards; }
+@keyframes fx-planet { 0% { transform: scale(.1) rotate(-90deg); opacity: 0; } 50% { transform: scale(1.4) rotate(0); opacity: 1; filter: drop-shadow(0 0 80px var(--color-secondary)); } 80% { transform: scale(1.5) rotate(20deg); opacity: 1; } 100% { transform: scale(2.5) rotate(40deg); opacity: 0; } }
+.fx-planet { animation: fx-planet 2.1s ease-out forwards; }
+@keyframes fx-crystal { 0% { transform: scale(.3) rotate(0); opacity: 0; } 30% { transform: scale(1.3) rotate(180deg); opacity: 1; filter: brightness(2.2) hue-rotate(0deg); } 60% { transform: scale(1.2) rotate(360deg); filter: brightness(1.6) hue-rotate(90deg); opacity: 1; } 100% { transform: scale(.2) rotate(540deg); opacity: 0; filter: brightness(3); } }
+.fx-crystal { animation: fx-crystal 1.9s ease-in-out forwards; }
+@keyframes fx-astro { 0% { transform: translateY(60vh) scale(.5); opacity: 0; } 40% { transform: translateY(0) scale(1.5); opacity: 1; filter: drop-shadow(0 0 90px var(--color-primary)); } 70% { transform: scale(1.6) rotate(-5deg); opacity: 1; } 100% { transform: scale(3); opacity: 0; } }
+.fx-astro { animation: fx-astro 2.1s ease-out forwards; }
+@keyframes fx-wild { 0% { transform: scale(0) rotate(0); opacity: 0; } 40% { transform: scale(1.6) rotate(360deg); opacity: 1; filter: brightness(2) drop-shadow(0 0 80px var(--color-accent)); } 75% { opacity: 1; transform: scale(1.4) rotate(380deg); } 100% { transform: scale(0) rotate(720deg); opacity: 0; } }
+.fx-wild { animation: fx-wild 2s ease-in-out forwards; }
