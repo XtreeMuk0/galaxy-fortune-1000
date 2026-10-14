@@ -110,7 +110,7 @@ export const DEFAULT_CONFIG: GameConfig = { rtp: 96, volatility: "high" };
 const VOL_TILT: Record<Volatility, number> = { medium: 0.4, high: 1, extreme: 2.5 };
 // Compensación calibrada por simulación para que cada modo dé el RTP objetivo
 export const VOL_CAL: Record<Volatility, Record<"base" | BuyType, number>> = {
-  medium: { base: 0.3653, bonus: 0.3136, super: 0.02726 }, high: { base: 0.2377, bonus: 0.2389, super: 0.02414 }, extreme: { base: 0.2002, bonus: 0.1717, super: 0.02065 },
+  medium: { base: 0.3653, bonus: 0.3136, super: 0.02903 }, high: { base: 0.2377, bonus: 0.2389, super: 0.02523 }, extreme: { base: 0.2002, bonus: 0.1717, super: 0.02148 },
 };
 function tilt(table: [number, number][], v: Volatility): [number, number][] {
   return table.map(([x, w]) => [x, x >= 25 ? w * VOL_TILT[v] : w]);
@@ -252,7 +252,7 @@ export interface BonusState {
 const SUPER_LEVEL = 5;
 const levelSpins = (l: number) => FREE_SPINS[Math.min(l, 7)] ?? 0;
 // Valor medio de un bono (x apuesta a escala 1) ≈ A · giros^K. Medido con scripts/ev-table.ts (crece más que lineal por los wilds pegajosos)
-export const BONUS_EV: Record<Volatility, { N: number; S: number }> = { medium: { N: 0.78, S: 20.1 }, high: { N: 0.985, S: 21.4 }, extreme: { N: 1.37, S: 25.7 } };
+export const BONUS_EV: Record<Volatility, { N: number; S: number }> = { medium: { N: 0.78, S: 18.9 }, high: { N: 0.985, S: 20.5 }, extreme: { N: 1.37, S: 24.7 } };
 const EV_K = { N: 2, S: 1.8 };
 // Los giros super pagan con la escala del bono reducida por SUPER_DAMP (así valen lo mismo vengan de donde vengan)
 const superDamp = (v: Volatility) => VOL_CAL[v].super / VOL_CAL[v].bonus;
