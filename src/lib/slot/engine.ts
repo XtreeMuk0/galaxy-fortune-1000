@@ -80,7 +80,7 @@ export type BuyType = "bonus" | "super";
 export interface RoundResult {
   config: GameConfig; roundId: string; gameId: string; version: string; bet: number; cost: number; buy: BuyType | null;
   base: SpinStep; freeSpins: SpinStep[]; superBonus: boolean;
-  bonusLevel: number; bonusSpins?: number; gambles: GambleStep[]; reveal?: Grid; totalWin: number; capped: boolean; timestamp: string;
+  bonusLevel: number; bonusSpins?: number; minPaid?: boolean; gambles: GambleStep[]; reveal?: Grid; totalWin: number; capped: boolean; timestamp: string;
 }
 
 // ---- Función bonus: orbes multiplicadores (solo en giros gratis) ----
@@ -204,7 +204,7 @@ function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, o
     step.tumbles = [];
     let cur = step;
     while (cur.lineWins.length && step.tumbles.length < MAX_TUMBLES) {
-      cur = tumbleOnce(cur, bet, scale, sticky);
+      cur = tumbleOnce(cur, bet, scale, sticky, table);
       step.tumbles.push(cur);
       step.win = round2(step.win + cur.win);
     }
@@ -215,7 +215,7 @@ function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, o
 // Cascada (Super Bonus): los símbolos premiados desaparecen y re-giran en su mismo hueco.
 // Wilds pegajosos y orbes se quedan; los símbolos nuevos no traen wilds ni scatters.
 export const MAX_TUMBLES = 20;
-function tumbleOnce(prev: SpinStep, bet: number, scale: number, sticky: Map<number, number>): SpinStep {
+function tumbleOnce(prev: SpinStep, bet: number, scale: number, sticky: Map<number, number>, table: [number, number][]): SpinStep {
   const remove = new Set<string>();
   prev.lineWins.forEach((l) => l.positions.forEach(([a, b]) => remove.add(`${a}-${b}`)));
   const orbAt = new Map(prev.orbs.map((o) => [`${o.reel}-${o.row}`, o.value]));
@@ -225,7 +225,8 @@ function tumbleOnce(prev: SpinStep, bet: number, scale: number, sticky: Map<numb
     // Re-giro en el mismo hueco: nada se mueve, solo se reemplazan los premiados
     grid.push(col.map((s, row) => {
       const k = `${reel}-${row}`;
-      if (orbAt.has(k)) { orbs.push({ reel, row, value: orbAt.get(k)! }); return s; }
+      // Los orbes se quedan pero su multiplicador vuelve a girar en cada re-giro
+      if (orbAt.has(k)) { orbs.push({ reel, row, value: pickWeighted(table) }); return s; }
       if (!remove.has(k) || s === "WILD") return s;
       const n = pick(); return n === "WILD" || n === "SCATTER" ? "J" : n;
     }));
@@ -258,6 +259,9 @@ const EV_K = { N: 2, S: 1.8 };
 const superDamp = (v: Volatility) => VOL_CAL[v].super / VOL_CAL[v].bonus;
 const bonusEV = (v: Volatility, sup: boolean, spins: number) => (sup ? superDamp(v) * BONUS_EV[v].S * spins ** EV_K.S : BONUS_EV[v].N * spins ** EV_K.N);
 /** Probabilidad de ganar la apuesta: neutral en RTP (valor esperado igual al de no apostar). */
+export const GAMBLE_HARDNESS = 0.55;
+// Las compras siempre devuelven como mínimo este % de su precio
+export const BUY_MIN_RETURN = 0.6;
 export function gambleChance(st: BonusState): number | null {
   if (!st.canGamble || st.level >= 7) return null;
   const v = st.config.volatility;
@@ -265,7 +269,8 @@ export function gambleChance(st: BonusState): number | null {
   const cur = bonusEV(v, st.isSuper, st.spins);
   const lose = bonusEV(v, st.isSuper, Math.max(1, Math.floor(st.spins / 2)));
   const win = bonusEV(v, st.isSuper || next >= SUPER_LEVEL, levelSpins(next));
-  const p = (cur - lose) / (win - lose);
+  // Neutral en RTP multiplicado por GAMBLE_HARDNESS (<1 = más difícil; apostar baja el RTP)
+  const p = GAMBLE_HARDNESS * (cur - lose) / (win - lose);
   return Math.min(0.95, Math.max(0.01, Math.round(p * 10000) / 10000));
 }
 /** r: número aleatorio [0,1) generado por el servidor. Si se pierde, la apuesta termina con la mitad de giros. */
@@ -327,8 +332,10 @@ export function finishBonus(st: BonusState, scaleOverride?: number): RoundResult
   let totalWin = round2(st.base.win + freeSpins.reduce((s, f) => s + f.win, 0));
   const capped = totalWin > bet * MAX_WIN_X;
   if (capped) totalWin = round2(bet * MAX_WIN_X);
+  const minPaid = st.buy !== null && totalWin < st.cost * BUY_MIN_RETURN;
+  if (minPaid) totalWin = round2(st.cost * BUY_MIN_RETURN);
   return {
-    roundId: st.roundId, gameId: GAME_ID, version: GAME_VERSION, bet, cost: st.cost, buy: st.buy,
+    minPaid, roundId: st.roundId, gameId: GAME_ID, version: GAME_VERSION, bet, cost: st.cost, buy: st.buy,
     base: st.base, freeSpins, superBonus: isSuper, totalWin, capped, config, timestamp: st.timestamp,
     bonusLevel: st.level, bonusSpins: st.spins, gambles: st.gambles, reveal: revealGrid(st.level),
   };
