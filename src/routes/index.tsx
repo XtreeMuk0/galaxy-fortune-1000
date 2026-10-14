@@ -121,6 +121,18 @@ function Game() {
       setWinPos(pos); await sleep(t ? 400 : 700); setMulti(step.multiplier); await sleep(t ? 900 : 1500);
     } else setWinPos(pos);
     if (step.win > 0) await sleep(t ? 800 : 1300);
+    // Cascada (Super Bonus): desaparecen los premiados y caen símbolos nuevos
+    for (const tb of step.tumbles ?? []) {
+      setWinPos(new Set()); setMulti(null);
+      setSpinning(Array.from({ length: REELS }, (_, i) => !held.has(i)));
+      await sleep(t ? 200 : 400);
+      setGrid(tb.grid); setSpinning(Array(REELS).fill(false));
+      setOrbs(new Map(tb.orbs.map((o) => [`${o.reel}-${o.row}`, o.value])));
+      await sleep(t ? 350 : 600);
+      const p = new Set<string>();
+      tb.lineWins.forEach((l) => l.positions.forEach(([a, b]) => p.add(`${a}-${b}`)));
+      if (tb.win > 0) { tb.orbs.forEach((o) => p.add(`${o.reel}-${o.row}`)); setWinPos(p); if (tb.orbs.length) setMulti(tb.multiplier); await sleep(t ? 800 : 1300); }
+    }
   }, []);
 
   const spin = useCallback(async (buy: BuyType | null = null) => {
