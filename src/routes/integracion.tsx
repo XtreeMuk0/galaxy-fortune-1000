@@ -42,7 +42,7 @@ sig = hex(HMAC_SHA256(secreto, "operator|player|currency|session|wallet|ts"))`}<
 
 POST /credit
 { ..., "roundId":"uuid","transactionId":"uuid-C","amount":3.40,"roundClosed":true,
-  "details": { "base": {...rejilla y líneas...}, "freeSpins": [...], "version":"1.0.0" } }
+  "details": { "base": {...rejilla y premios...}, "freeSpins": [...], "version":"1.0.0" } }
 → { "balance": 102.40 }
 
 POST /rollback  (si el crédito falla, se devuelve la apuesta)
@@ -50,11 +50,11 @@ POST /balance   → { "balance": 100.00 }`}</Code>
       <p className="text-sm text-muted-foreground">Las transacciones deben ser idempotentes por <code>transactionId</code>.</p>
 
       <h2 className="font-display text-xl text-primary">3. Historial y auditoría</h2>
-      <p>Cada <code>/credit</code> incluye el detalle completo de la ronda (rejilla, líneas premiadas, giros gratis, versión del juego). El casino guarda este registro para atención al cliente, reclamaciones e informes regulatorios. El jugador ve su historial de sesión desde el botón de reloj.</p>
+      <p>Cada <code>/credit</code> incluye el detalle completo de la ronda (rejilla, premios, giros gratis, versión del juego). El casino guarda este registro para atención al cliente, reclamaciones e informes regulatorios. El jugador ve su historial de sesión desde el botón de reloj.</p>
 
       <h2 className="font-display text-xl text-primary">4. Datos del juego</h2>
       <ul className="list-disc space-y-1 pl-5 text-sm">
-        <li>7×5, 50 líneas fijas, apuestas de 0,20 a 100</li>
+        <li>7×5, paga en cualquier posición (5+ iguales; 5=3 en línea … 9+=7), cascadas de hasta 5 re-giros en base y bonos, apuestas de 0,20 a 100</li>
         <li>Wild sustituye; Scatter 3/4 = 10/15 giros gratis (bono normal); 5 o más = Super Bonus con cascadas y 2 orbes x1000 aleatorios; giros gratis con orbes multiplicadores x2 a x1000 (reactivables)</li>
         <li>Ruleta de subida (gratis): al activar un bono el jugador puede apostar para subir un scatter (hasta 7). Si gana sube de nivel y giros; si pierde se queda con la mitad de giros y la apuesta termina. Desde 5 scatters es Super Bonus (nunca baja de 5). Apostar es más difícil que neutral (factor 0,55): sin apostar el RTP es el configurado; apostar siempre hasta el final lo baja (~75 %). Las compras devuelven siempre como mínimo el 60 % de su precio, pagado como premios normales del bono. En los giros gratis los orbes también hacen de wild y su multiplicador cambia en cada re-giro. Flujo: <code>/spin</code> devuelve <code>pending</code> y <code>token</code>; <code>/bonus</code> con <code>action:"gamble"</code> o <code>"play"</code>. En dinero real el <code>/debit</code> se hace en <code>/spin</code> y el <code>/credit</code> al terminar el bono (incluye las apuestas en <code>details.gambles</code>).</li>
         <li>Compra de bonus: 100× la apuesta (3 scatters, 10 giros). Super Bonus: 500× (5 scatters, 20 giros) con 2 orbes x1000 aleatorios. En el <code>/debit</code> se envía el coste real y el campo <code>buy</code>.</li>
