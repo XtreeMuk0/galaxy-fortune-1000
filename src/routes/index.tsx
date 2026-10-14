@@ -411,7 +411,8 @@ function Paytable({ open, onOpenChange, bet, fmt }: { open: boolean; onOpenChang
           <div className="h-16 w-16 shrink-0"><SlotSymbol id="SCATTER" /></div>
           <div className="text-sm">
             <p className="font-bold">{SYMBOL_NAME.SCATTER} — paga en cualquier posición</p>
-            {[7, 6, 5, 4, 3].map((n) => <p key={n}>{n}× → {fmt(SCATTER_PAY[n]! * bet)} + {FREE_SPINS[n]} giros gratis</p>)}
+            {[7, 6, 5, 4, 3].map((n) => <p key={n}>{n}× → {fmt(SCATTER_PAY[n]! * bet)} + {FREE_SPINS[n]} giros gratis {n >= 5 ? "(SUPER BONUS)" : "(bono normal)"}</p>)}
+            <p className="text-accent font-bold">3 o 4 scatters = bono normal · 5 o más scatters = SUPER BONUS (cascadas y 2 orbes x1000 aleatorios)</p>
             <p className="text-muted-foreground">Los giros gratis se pueden reactivar.</p>
           </div>
         </div>
