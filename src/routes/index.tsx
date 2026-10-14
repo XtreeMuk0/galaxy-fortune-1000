@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, History, Info, Zap, Code2 } from "lucide-react";
@@ -60,6 +61,7 @@ function Game() {
   const [winPos, setWinPos] = useState<Set<string>>(new Set());
   const [gone, setGone] = useState<Set<string>>(new Set());
   const [mini, setMini] = useState<Set<string>>(new Set());
+  const [landed, setLanded] = useState<Set<string>>(new Set());
   const [lastWin, setLastWin] = useState(0);
   const [fs, setFs] = useState<{ left: number; total: number; win: number } | null>(null);
   const [orbs, setOrbs] = useState<Map<string, number>>(new Map());
@@ -134,11 +136,12 @@ function Game() {
       setGone(new Set()); setMini(holes);
       setGrid(tb.grid); setOrbs(new Map(tb.orbs.map((o) => [`${o.reel}-${o.row}`, o.value])));
       await sleep(t ? 450 : 900);
-      setMini(new Set());
+      setMini(new Set()); setLanded(holes);
       await sleep(t ? 300 : 500);
       const p = new Set<string>();
       tb.lineWins.forEach((l) => l.positions.forEach(([a, b]) => p.add(`${a}-${b}`)));
       if (tb.win > 0) { tb.orbs.forEach((o) => p.add(`${o.reel}-${o.row}`)); setWinPos(p); if (tb.orbs.length) setMulti(tb.multiplier); await sleep(t ? 800 : 1300); }
+      setLanded(new Set());
       prev = tb;
     }
   }, []);
@@ -244,7 +247,7 @@ function Game() {
                             {[...ALL_SYMBOLS, ...ALL_SYMBOLS].map((x, i) => <div key={i} className="h-[3.6rem] sm:h-[6.4rem]"><SlotSymbol id={x} /></div>)}
                           </div></div>
                         );
-                        return <SlotSymbol key={`${row}-${s}`} id={s} value={orbs.get(k)} win={winPos.has(k)} className={winPos.size && !winPos.has(k) ? "opacity-40" : ""} />;
+                        return <SlotSymbol key={`${row}-${s}`} id={s} value={orbs.get(k)} win={winPos.has(k)} className={cn(winPos.size && !winPos.has(k) && "opacity-40", landed.has(k) && "animate-drop-in")} />;
                       })}
                     </div>
                   )}
