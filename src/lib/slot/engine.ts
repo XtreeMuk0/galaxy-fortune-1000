@@ -79,7 +79,8 @@ export interface StickyWild { reel: number; value: number; isNew: boolean; battl
 export type BuyType = "bonus" | "super";
 export interface RoundResult {
   config: GameConfig; roundId: string; gameId: string; version: string; bet: number; cost: number; buy: BuyType | null;
-  base: SpinStep; freeSpins: SpinStep[]; superBonus: boolean; totalWin: number; capped: boolean; timestamp: string;
+  base: SpinStep; freeSpins: SpinStep[]; superBonus: boolean;
+  bonusLevel: number; bonusSpins?: number; gambles: GambleStep[]; reveal?: Grid; totalWin: number; capped: boolean; timestamp: string;
 }
 
 // ---- Función bonus: orbes multiplicadores (solo en giros gratis) ----
@@ -90,7 +91,7 @@ export const ORB_TABLE: [number, number][] = [
 ];
 // En la super compra los orbes normales no traen x1000; se garantizan 2 x1000 en tiradas aleatorias
 const ORB_TABLE_SUPER = ORB_TABLE.filter(([v]) => v < 1000);
-export const BUY_COST: Record<BuyType, number> = { bonus: 100, super: 482.5000 };
+export const BUY_COST: Record<BuyType, number> = { bonus: 100, super: 500 };
 export const SUPER_X1000_COUNT = 2;
 // Batalla del wild: un multiplicador bajo contra uno alto, gana uno al azar (50/50)
 export const BATTLE_LOW = [2, 3];
@@ -109,7 +110,7 @@ export const DEFAULT_CONFIG: GameConfig = { rtp: 96, volatility: "high" };
 const VOL_TILT: Record<Volatility, number> = { medium: 0.4, high: 1, extreme: 2.5 };
 // Compensación calibrada por simulación para que cada modo dé el RTP objetivo
 export const VOL_CAL: Record<Volatility, Record<"base" | BuyType, number>> = {
-  medium: { base: 0.3653, bonus: 0.3006, super: 0.2037 }, high: { base: 0.2377, bonus: 0.2413, super: 0.1969 }, extreme: { base: 0.2002, bonus: 0.177, super: 0.1716 },
+  medium: { base: 0.3653, bonus: 0.3136, super: 0.02903 }, high: { base: 0.2377, bonus: 0.2389, super: 0.02523 }, extreme: { base: 0.2002, bonus: 0.1717, super: 0.02148 },
 };
 function tilt(table: [number, number][], v: Volatility): [number, number][] {
   return table.map(([x, w]) => [x, x >= 25 ? w * VOL_TILT[v] : w]);
@@ -235,42 +236,109 @@ function tumbleOnce(prev: SpinStep, bet: number, scale: number, sticky: Map<numb
   return st;
 }
 
-function forcedTriggerGrid(): Grid {
+function forcedTriggerGrid(n = 3): Grid {
   const grid = spinGrid().map((col) => col.map((s) => (s === "SCATTER" ? "J" : s)) as SymbolId[]);
-  const reels = Array.from({ length: REELS }, (_, i) => i).sort(() => rand() - 0.5).slice(0, 3);
+  const reels = Array.from({ length: REELS }, (_, i) => i).sort(() => rand() - 0.5).slice(0, n);
   for (const r of reels) grid[r]![Math.floor(rand() * ROWS)] = "SCATTER";
   return grid;
 }
 
-export function playRound(bet: number, buy: BuyType | null = null, cfg?: Partial<GameConfig> | null): RoundResult {
+// ---- Apuesta para subir el bono (ruleta) ----
+export interface GambleStep { from: number; to: number; won: boolean; chance: number; spins: number }
+export interface BonusState {
+  roundId: string; bet: number; buy: BuyType | null; config: GameConfig; cost: number; scaleKey: "base" | BuyType;
+  base: SpinStep; level: number; spins: number; isSuper: boolean; canGamble: boolean; gambles: GambleStep[]; timestamp: string;
+}
+const SUPER_LEVEL = 5;
+const levelSpins = (l: number) => FREE_SPINS[Math.min(l, 7)] ?? 0;
+// Valor medio de un bono (x apuesta a escala 1) ≈ A · giros^K. Medido con scripts/ev-table.ts (crece más que lineal por los wilds pegajosos)
+export const BONUS_EV: Record<Volatility, { N: number; S: number }> = { medium: { N: 0.78, S: 18.9 }, high: { N: 0.985, S: 20.5 }, extreme: { N: 1.37, S: 24.7 } };
+const EV_K = { N: 2, S: 1.8 };
+// Los giros super pagan con la escala del bono reducida por SUPER_DAMP (así valen lo mismo vengan de donde vengan)
+const superDamp = (v: Volatility) => VOL_CAL[v].super / VOL_CAL[v].bonus;
+const bonusEV = (v: Volatility, sup: boolean, spins: number) => (sup ? superDamp(v) * BONUS_EV[v].S * spins ** EV_K.S : BONUS_EV[v].N * spins ** EV_K.N);
+/** Probabilidad de ganar la apuesta: neutral en RTP (valor esperado igual al de no apostar). */
+export function gambleChance(st: BonusState): number | null {
+  if (!st.canGamble || st.level >= 7) return null;
+  const v = st.config.volatility;
+  const next = st.level + 1;
+  const cur = bonusEV(v, st.isSuper, st.spins);
+  const lose = bonusEV(v, st.isSuper, Math.max(1, Math.floor(st.spins / 2)));
+  const win = bonusEV(v, st.isSuper || next >= SUPER_LEVEL, levelSpins(next));
+  const p = (cur - lose) / (win - lose);
+  return Math.min(0.95, Math.max(0.01, Math.round(p * 10000) / 10000));
+}
+/** r: número aleatorio [0,1) generado por el servidor. Si se pierde, la apuesta termina con la mitad de giros. */
+export function gamble(st: BonusState, r: number): BonusState {
+  const p = gambleChance(st);
+  if (p === null) throw new Error("No se puede apostar");
+  const won = r < p;
+  const to = won ? st.level + 1 : st.level;
+  const spins = won ? levelSpins(to) : Math.max(1, Math.floor(st.spins / 2));
+  return {
+    ...st, level: to, spins, isSuper: st.isSuper || to >= SUPER_LEVEL, canGamble: won && to < 7,
+    gambles: [...st.gambles, { from: st.level, to, won, chance: p, spins }],
+  };
+}
+
+function scaleFor(config: GameConfig, key: "base" | BuyType) {
+  return TUNING.PAY_SCALE * (config.rtp / 96) * VOL_CAL[config.volatility][key];
+}
+
+/** Primera tirada. Si activa bono devuelve el estado pendiente (para apostar o jugar). */
+export function startRound(bet: number, buy: BuyType | null = null, cfg?: Partial<GameConfig> | null): { round?: RoundResult; pending?: BonusState } {
   if (!BET_LEVELS.includes(bet)) throw new Error("Apuesta no válida");
   const config = normalizeConfig(cfg);
-  const scale = TUNING.PAY_SCALE * (config.rtp / 96) * VOL_CAL[config.volatility][buy ?? "base"];
-  const base = evaluate(buy ? forcedTriggerGrid() : spinGrid(), bet, [], scale);
-  const freeSpins: SpinStep[] = [];
-  // 3-4 scatters = bono normal; 5+ scatters en juego normal = Super Bonus
-  const isSuper = buy === "super" || (buy === null && base.scatterCount >= 5);
+  const scaleKey = buy ?? "base";
+  const base = evaluate(buy ? forcedTriggerGrid(buy === "super" ? SUPER_LEVEL : 3) : spinGrid(), bet, [], scaleFor(config, scaleKey));
+  const roundId = globalThis.crypto.randomUUID();
+  const cost = round2(bet * (buy ? BUY_COST[buy] : 1));
+  const timestamp = new Date().toISOString();
+  if (base.scatterCount < 3) {
+    const totalWin = Math.min(base.win, round2(bet * MAX_WIN_X));
+    return { round: { roundId, gameId: GAME_ID, version: GAME_VERSION, bet, cost, buy, base, freeSpins: [], superBonus: false, totalWin, capped: base.win > bet * MAX_WIN_X, config, timestamp, bonusLevel: 0, gambles: [] } };
+  }
+  const level = Math.min(base.scatterCount, 7);
+  return { pending: { roundId, bet, buy, config, cost, scaleKey, base, level, spins: levelSpins(level), isSuper: level >= SUPER_LEVEL, canGamble: level < 7, gambles: [], timestamp } };
+}
+
+/** Rejilla de presentación (sin premio) con los scatters conseguidos antes de empezar el bono. */
+function revealGrid(n: number): Grid { return forcedTriggerGrid(n); }
+
+export function finishBonus(st: BonusState, scaleOverride?: number): RoundResult {
+  const { bet, config, isSuper } = st;
+  const scale = scaleOverride ?? scaleFor(config, st.scaleKey === "super" ? "bonus" : st.scaleKey) * (isSuper ? superDamp(config.volatility) : 1);
   const table = tilt(isSuper ? ORB_TABLE_SUPER : ORB_TABLE, config.volatility);
   const x1000At = new Set<number>();
   // Super: 2 x1000 en tiradas aleatorias; cada uno aparece solo con cierta probabilidad (no siempre toca)
   if (isSuper) {
     const spots = new Set<number>();
-    while (spots.size < SUPER_X1000_COUNT) spots.add(Math.floor(rand() * base.freeSpinsAwarded));
+    while (spots.size < Math.min(SUPER_X1000_COUNT, st.spins)) spots.add(Math.floor(rand() * st.spins));
     spots.forEach((i) => { if (rand() < TUNING.SUPER_X1000_CHANCE) x1000At.add(i); });
   }
+  const freeSpins: SpinStep[] = [];
   const sticky = new Map<number, number>();
-  let remaining = base.freeSpinsAwarded;
+  let remaining = st.spins;
   while (remaining > 0 && freeSpins.length < 100) {
     const step = freeSpin(bet, table, x1000At.has(freeSpins.length), isSuper ? TUNING.SUPER_ORB_CHANCE : TUNING.ORB_CHANCE, scale, sticky, isSuper);
     freeSpins.push(step);
     remaining += step.freeSpinsAwarded - 1; // reactivación
   }
-  let totalWin = round2(base.win + freeSpins.reduce((s, f) => s + f.win, 0));
+  let totalWin = round2(st.base.win + freeSpins.reduce((s, f) => s + f.win, 0));
   const capped = totalWin > bet * MAX_WIN_X;
   if (capped) totalWin = round2(bet * MAX_WIN_X);
   return {
-    roundId: globalThis.crypto.randomUUID(), gameId: GAME_ID, version: GAME_VERSION,
-    bet, cost: round2(bet * (buy ? BUY_COST[buy] : 1)), buy,
-    base, freeSpins, superBonus: isSuper, totalWin, capped, config, timestamp: new Date().toISOString(),
+    roundId: st.roundId, gameId: GAME_ID, version: GAME_VERSION, bet, cost: st.cost, buy: st.buy,
+    base: st.base, freeSpins, superBonus: isSuper, totalWin, capped, config, timestamp: st.timestamp,
+    bonusLevel: st.level, bonusSpins: st.spins, gambles: st.gambles, reveal: revealGrid(st.level),
   };
+}
+
+/** Ronda completa (simulaciones). gambleUpTo: nivel hasta el que se apuesta (0 = nunca). */
+export function playRound(bet: number, buy: BuyType | null = null, cfg?: Partial<GameConfig> | null, gambleUpTo = 0): RoundResult {
+  const r = startRound(bet, buy, cfg);
+  if (r.round) return r.round;
+  let st = r.pending!;
+  while (st.canGamble && st.level < gambleUpTo) st = gamble(st, rand());
+  return finishBonus(st);
 }

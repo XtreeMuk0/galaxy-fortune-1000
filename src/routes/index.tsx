@@ -4,12 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, History, Info, Zap, Code2 } from "lucide-react";
 import bg from "@/assets/bg-galaxias.jpg";
 import { SlotSymbol } from "@/components/slot/SlotSymbol";
+import { GambleWheel } from "@/components/slot/GambleWheel";
 import { ALL_SYMBOLS, SYMBOL_NAME } from "@/components/slot/symbols";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   BET_LEVELS, PAYTABLE, SCATTER_PAY, FREE_SPINS, REELS, ROWS, BUY_COST, ORB_TABLE, MAX_WIN_X,
-  type Grid, type RoundResult, type SpinStep, type SymbolId, type BuyType, type Volatility, RTP_OPTIONS, VOLATILITIES,
+  type Grid, type RoundResult, type BonusState, type SpinStep, type SymbolId, type BuyType, type Volatility, RTP_OPTIONS, VOLATILITIES,
 } from "@/lib/slot/engine";
 
 const DEMO_BALANCE = 100000;
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/")({
 
 const randGrid = (): Grid =>
   Array.from({ length: REELS }, () => Array.from({ length: ROWS }, () => ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)]!));
+type GambleUI = { pending: BonusState; chance: number | null; token: string; rotation: number; rolling: boolean; result: "win" | "lose" | null };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type Launch = Record<"operator" | "player" | "currency" | "session" | "wallet" | "ts" | "sig", string>;
@@ -61,6 +63,8 @@ function Game() {
   const [winPos, setWinPos] = useState<Set<string>>(new Set());
   const [gone, setGone] = useState<Set<string>>(new Set());
   const [mini, setMini] = useState<Set<string>>(new Set());
+  const [gambleUI, setGambleUI] = useState<GambleUI | null>(null);
+  const choiceRef = useRef<((c: "gamble" | "play") => void) | null>(null);
   const [landed, setLanded] = useState<Set<string>>(new Set());
   const [lastWin, setLastWin] = useState(0);
   const [fs, setFs] = useState<{ left: number; total: number; win: number } | null>(null);
@@ -160,13 +164,49 @@ function Game() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: real ? "real" : "demo", bet, buy, launch: launch ?? undefined, config: { rtp, volatility: vol } }),
       });
-      const json = await res.json();
+      let json = await res.json();
       if (!res.ok) throw new Error(json.error === "insufficient_funds" ? "Saldo insuficiente" : "Error de conexión con el servidor");
-      const round: RoundResult = json.round;
-      await animateStep(round.base);
-      if (round.base.win > 0) setLastWin(round.base.win);
+      let round: RoundResult;
+      if (json.pending) {
+        const pend: BonusState = json.pending;
+        await animateStep(pend.base);
+        if (pend.base.win > 0) setLastWin(pend.base.win);
+        if (real && typeof json.balance === "number") setBalance(json.balance);
+        // Ruleta: el jugador decide apostar para subir de scatters o jugar el bono
+        let g: GambleUI = { pending: pend, chance: json.chance, token: json.token, rotation: 0, rolling: false, result: null };
+        setGambleUI(g);
+        for (;;) {
+          const choice = g.chance === null ? "play" : await new Promise<"gamble" | "play">((r) => { choiceRef.current = r; });
+          choiceRef.current = null;
+          if (choice === "play") break;
+          const gr = await fetch("/api/public/v1/bonus", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "gamble", token: g.token, launch: launch ?? undefined }) });
+          const gj = await gr.json();
+          if (!gr.ok) throw new Error("Error de conexión con el servidor");
+          const chance = g.chance!;
+          const deg = gj.won ? (0.1 + Math.random() * 0.8) * chance * 360 : chance * 360 + (0.1 + Math.random() * 0.8) * (1 - chance) * 360;
+          const rotation = g.rotation + 360 * 5 + (360 - ((g.rotation % 360) + deg) % 360);
+          g = { ...g, rolling: true, rotation, result: null }; setGambleUI(g);
+          await sleep(3400);
+          g = { pending: gj.pending, chance: gj.chance, token: gj.token, rotation, rolling: false, result: gj.won ? "win" : "lose" }; setGambleUI(g);
+          await sleep(gj.won ? 1400 : 2000);
+        }
+        setGambleUI(null);
+        const pr = await fetch("/api/public/v1/bonus", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "play", token: g.token, launch: launch ?? undefined }) });
+        json = await pr.json();
+        if (!pr.ok) throw new Error("Error de conexión con el servidor");
+        round = json.round;
+        // Tirada de presentación con los scatters conseguidos
+        if (round.reveal) {
+          await animateStep({ grid: round.reveal, lineWins: [], scatterCount: round.bonusLevel, scatterWin: 0, win: 0, multiplier: 1, freeSpinsAwarded: round.bonusSpins ?? 0, orbs: [] });
+          await sleep(600);
+        }
+      } else {
+        round = json.round;
+        await animateStep(round.base);
+        if (round.base.win > 0) setLastWin(round.base.win);
+      }
       if (round.freeSpins.length) {
-        setBanner({ title: round.superBonus ? `SUPER BONUS · ${round.base.freeSpinsAwarded} GIROS` : `${round.base.freeSpinsAwarded} GIROS GRATIS` });
+        setBanner({ title: round.superBonus ? `SUPER BONUS · ${round.bonusSpins} GIROS` : `${round.bonusSpins} GIROS GRATIS` });
         await sleep(1800); setBanner(null);
         let acc = round.base.win;
         for (let i = 0; i < round.freeSpins.length; i++) {
@@ -182,6 +222,7 @@ function Game() {
       else setBalance((b) => +(b + round.totalWin).toFixed(2));
       setHistory((h) => [round, ...h].slice(0, 100));
     } catch (e) {
+      setGambleUI(null);
       if (!real) setBalance((b) => +(b + cost).toFixed(2));
       setError((e as Error).message); setAuto(0);
       setSpinning(Array(REELS).fill(false));
@@ -255,6 +296,25 @@ function Game() {
               ))}
             </div>
 
+            {gambleUI && (() => {
+              const p = gambleUI.pending; const next = p.level + 1; const nextSuper = p.isSuper || next >= 5;
+              return (
+                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 rounded-[1.35rem] bg-background/85 p-4 text-center backdrop-blur-sm">
+                  <p className="font-display text-gold text-2xl font-black sm:text-4xl">{p.isSuper ? "SUPER BONUS" : "BONO"} · {p.level} SCATTERS · {p.spins} GIROS</p>
+                  {gambleUI.result && <p className={cn("animate-big-win font-display text-3xl font-black sm:text-5xl", gambleUI.result === "win" ? "text-accent" : "text-destructive")}>{gambleUI.result === "win" ? "¡SUBES!" : "¡PIERDES! MITAD DE GIROS"}</p>}
+                  {gambleUI.chance !== null && (
+                    <>
+                      <GambleWheel chance={gambleUI.chance} rotation={gambleUI.rotation} />
+                      <p className="text-sm text-muted-foreground">Ganar ({Math.round(gambleUI.chance * 100)} %): {next} scatters · {FREE_SPINS[next]} giros{nextSuper && !p.isSuper ? " · SUPER BONUS" : ""}. Perder: te quedas con {Math.max(1, Math.floor(p.spins / 2))} giros.</p>
+                      <div className="flex gap-3">
+                        <button disabled={gambleUI.rolling} onClick={() => choiceRef.current?.("gamble")} className="font-display rounded-full bg-accent px-6 py-3 font-black text-accent-foreground shadow-gold disabled:opacity-50">APOSTAR (GRATIS)</button>
+                        <button disabled={gambleUI.rolling} onClick={() => choiceRef.current?.("play")} className="font-display rounded-full bg-primary px-6 py-3 font-black text-primary-foreground disabled:opacity-50">JUGAR BONO</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
             {battle && (
               <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center rounded-[1.35rem] bg-background/75">
                 <p className="font-display mb-3 text-sm font-bold tracking-[0.3em] text-accent sm:text-lg">BATALLA WILD</p>
