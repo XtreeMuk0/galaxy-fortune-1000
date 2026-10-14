@@ -17,9 +17,9 @@ const VOL_LABEL: Record<Volatility, string> = { medium: "Media", high: "Alta", e
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Galaxy Fortune 1000 · Slot 6x5" },
-      { name: "description", content: "Galaxy Fortune 1000: 6x5, 50 líneas, wilds galácticos y giros gratis x2." },
-      { property: "og:title", content: "Galaxy Fortune 1000 · Slot 6x5" },
+      { title: "Galaxy Fortune 1000 · Slot 7x5" },
+      { name: "description", content: "Galaxy Fortune 1000: 7x5, 50 líneas, wilds galácticos y giros gratis x2." },
+      { property: "og:title", content: "Galaxy Fortune 1000 · Slot 7x5" },
       { property: "og:description", content: "50 líneas, wilds galácticos y giros gratis x2." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -199,7 +199,7 @@ function Game() {
                 GIROS GRATIS · Quedan {fs.left} · Total {fmt(fs.win)}
               </div>
             )}
-            <div className="grid grid-cols-6 gap-1 sm:gap-2">
+            <div className="grid grid-cols-7 gap-1 sm:gap-2">
               {grid.map((col, r) => (
                 <div key={r} className="relative h-[18rem] overflow-hidden rounded-xl border border-border bg-background/40 sm:h-[32rem]">
                   {stickies.has(r) && !spinning[r] ? (
