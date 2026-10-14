@@ -98,7 +98,7 @@ export const BATTLE_LOW = [2, 3];
 // Multiplicador alto de la batalla: hasta x1000 (muy raro)
 export const BATTLE_HIGH: [number, number][] = [[5, 400], [10, 250], [25, 120], [50, 60], [100, 25], [250, 8], [500, 3], [1000, 1]];
 export const MAX_STICKY = 3; // máximo de rodillos wild pegajosos por bono
-export const WILD_FS_KEEP = 0.07; // probabilidad de que un wild caído en giros gratis cuente (controla frecuencia)
+export const WILD_FS_KEEP = 0.25; // probabilidad de que un wild caído en giros gratis cuente (controla frecuencia)
 export const MAX_WIN_X = 10000; // premio máximo por ronda (x apuesta)
 
 export type Volatility = "medium" | "high" | "extreme";
@@ -110,7 +110,7 @@ export const DEFAULT_CONFIG: GameConfig = { rtp: 96, volatility: "high" };
 const VOL_TILT: Record<Volatility, number> = { medium: 0.4, high: 1, extreme: 2.5 };
 // Compensación calibrada por simulación para que cada modo dé el RTP objetivo
 export const VOL_CAL: Record<Volatility, Record<"base" | BuyType, number>> = {
-  medium: { base: 0.0072, bonus: 0.000349, super: 0.000633 }, high: { base: 0.0063, bonus: 0.000252, super: 0.000505 }, extreme: { base: 0.0066, bonus: 0.000159, super: 0.000362 },
+  medium: { base: 0.0205, bonus: 0.000655, super: 0.00138 }, high: { base: 0.0175, bonus: 0.000512, super: 0.00109 }, extreme: { base: 0.019, bonus: 0.000346, super: 0.00083 },
 };
 function tilt(table: [number, number][], v: Volatility): [number, number][] {
   return table.map(([x, w]) => [x, x >= 25 ? w * VOL_TILT[v] : w]);
@@ -131,7 +131,9 @@ function pickWeighted(table: [number, number][]): number {
 
 // "Paga en cualquier sitio": se cuentan los símbolos iguales en toda la rejilla.
 // 5 = pago de 3 en línea, 6 = 4, 7 = 5, 8 = 6, 9+ = 7. WILD (y ORB en bonos) sustituyen; un carrete wild pegajoso cuenta como 1.
-export const MIN_COUNT = 5;
+export const MIN_COUNT = 6;
+// 6, 7, 8, 9-10, 11+ iguales
+export const tierOf = (n: number) => (n >= 11 ? 4 : n >= 9 ? 3 : n - MIN_COUNT);
 export const PAY_DIV = 50;
 function evaluate(grid: Grid, bet: number, orbs: Orb[], scale: number, wildMult: Map<number, number> = new Map()): SpinStep {
   const lineWins: LineWin[] = [];
@@ -149,10 +151,10 @@ function evaluate(grid: Grid, bet: number, orbs: Orb[], scale: number, wildMult:
   }); });
   const mult = (orbSum + stickyMult) || 1;
   const pay = (sym: SymbolId, n: number, pos: [number, number][]) => {
-    const p = PAYTABLE[sym]?.[Math.min(n, 9) - MIN_COUNT] ?? 0;
-    if (p > 0) lineWins.push({ line: -1, symbol: sym, count: Math.min(n, 9), win: round2(p * bet / PAY_DIV * scale * mult), positions: pos });
+    const p = PAYTABLE[sym]?.[tierOf(n)] ?? 0;
+    if (p > 0) lineWins.push({ line: -1, symbol: sym, count: n, win: round2(p * bet / PAY_DIV * scale * mult), positions: pos });
   };
-  for (const [sym, pos] of cells) if (pos.length >= 2 && pos.length + wildCount >= MIN_COUNT) pay(sym, pos.length + wildCount, [...pos, ...wilds]);
+  for (const [sym, pos] of cells) if (pos.length >= 3 && pos.length + wildCount >= MIN_COUNT) pay(sym, pos.length + wildCount, [...pos, ...wilds]);
   if (wildCount >= MIN_COUNT) pay("WILD", wildCount, wilds);
   const scatterCount = grid.flat().filter((s) => s === "SCATTER").length;
   const sc = Math.min(scatterCount, 7);

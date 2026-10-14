@@ -524,13 +524,13 @@ function Paytable({ open, onOpenChange, bet, fmt }: { open: boolean; onOpenChang
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader><DialogTitle className="font-display text-gold text-2xl">Tabla de pagos</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">Paga en cualquier posición: 5 o más símbolos iguales en cualquier lugar de la pantalla dan premio. Los premiados desaparecen y caen nuevos (cascada, hasta 5 seguidas), en el juego normal y en los bonos. La Galaxia (wild) sustituye a todos menos al Scatter. Valores aproximados para la apuesta actual.</p>
+        <p className="text-sm text-muted-foreground">Paga en cualquier posición: 6 o más símbolos iguales en cualquier lugar de la pantalla dan premio. Los premiados desaparecen y caen nuevos (cascada, hasta 5 seguidas), en el juego normal y en los bonos. La Galaxia (wild) sustituye a todos menos al Scatter. Valores aproximados para la apuesta actual.</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {rows.map(([s, p]) => (
             <div key={s} className="flex items-center gap-2 rounded-xl border border-border bg-muted p-2">
               <div className="h-14 w-14 shrink-0"><SlotSymbol id={s} /></div>
               <div className="text-xs">
-                {[9, 8, 7, 6, 5].map((n) => <p key={n}><span className="text-muted-foreground">{n === 9 ? "9+" : n}×</span> {fmt(p[n - 5]! * lineBet)}</p>)}
+                {([[11, "11+", 4], [9, "9-10", 3], [8, "8", 2], [7, "7", 1], [6, "6", 0]] as const).map(([n, l, i]) => <p key={n}><span className="text-muted-foreground">{l}×</span> {fmt(p[i]! * lineBet)}</p>)}
               </div>
             </div>
           ))}
