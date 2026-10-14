@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, History, Info, Zap, Code2 } from "lucide-react";
 import bg from "@/assets/bg-galaxias.jpg";
 import logo from "@/assets/sym-logo.png.asset.json";
-import character from "@/assets/character.png";
+import charIdle from "@/assets/char-idle.png";
+import charCast from "@/assets/char-cast.png";
+import { EpicBolt } from "@/components/slot/EpicBolt";
 import { SlotSymbol } from "@/components/slot/SlotSymbol";
 import { GambleWheel } from "@/components/slot/GambleWheel";
 import { ALL_SYMBOLS, SYMBOL_NAME } from "@/components/slot/symbols";
@@ -265,32 +267,26 @@ function Game() {
     <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-2 py-6">
       <img src={bg} alt="" width={1920} height={1088} className="absolute inset-0 -z-10 h-full w-full object-cover" />
       <div className="absolute inset-0 -z-10 bg-background/30" />
-      {/* Personaje del estudio: flota en el fondo y reacciona a cada wild pegajoso */}
-      <div className="pointer-events-none absolute bottom-0 left-[-6rem] -z-10 hidden w-[34rem] opacity-90 lg:block xl:left-0">
-        <div className="animate-char-float">
-          <div className="animate-char-breathe origin-bottom">
-            <img ref={charRef} key={charReact} src={character} alt="" className={cn("w-full drop-shadow-[0_0_40px_var(--color-primary)]", charReact > 0 && "animate-char-react")} />
+      {/* Personaje del estudio: respira en reposo; al caer un wild pegajoso alza el brazo y lanza el rayo */}
+      <div className="pointer-events-none absolute bottom-0 left-[-6rem] -z-10 hidden w-[34rem] opacity-95 lg:block xl:left-0">
+        <div className="animate-sway">
+          <div className="animate-breathe-real">
+            <img ref={charRef} key={casting ? `c${charReact}` : "idle"} src={casting ? charCast : charIdle} alt="" className={cn("w-full drop-shadow-[0_0_40px_var(--color-primary)]", casting && "animate-cast")} />
           </div>
         </div>
       </div>
-      {bolt && (() => {
-        const n = 9; const pts = Array.from({ length: n + 1 }, (_, i) => {
-          const f = i / n; const j = i === 0 || i === n ? 0 : (Math.random() - 0.5) * 60;
-          return `${bolt.x1 + (bolt.x2 - bolt.x1) * f + j},${bolt.y1 + (bolt.y2 - bolt.y1) * f + j}`;
-        }).join(" ");
-        return (
-          <svg key={bolt.k} className="pointer-events-none fixed inset-0 z-40 h-full w-full animate-bolt">
-            <polyline points={pts} fill="none" stroke="var(--color-primary)" strokeWidth="14" strokeLinejoin="round" opacity="0.5" style={{ filter: "blur(6px)" }} />
-            <polyline points={pts} fill="none" stroke="var(--color-foreground)" strokeWidth="4" strokeLinejoin="round" />
-            <circle cx={bolt.x1} cy={bolt.y1} r="22" fill="var(--color-primary)" opacity="0.8" className="animate-ping" />
-            <circle cx={bolt.x2} cy={bolt.y2} r="40" fill="var(--color-accent)" opacity="0.6" className="animate-ping" />
+      {bolt && (
+        <>
+          <div key={`f${bolt.k}`} className="pointer-events-none fixed inset-0 z-40 bg-foreground/40 animate-flash" />
+          <svg key={bolt.k} className="pointer-events-none fixed inset-0 z-40 h-full w-full">
+            <EpicBolt from={bolt.from} to={bolt.to} />
           </svg>
-        );
-      })()}
+        </>
+      )}
 
       <header className="relative mb-4 text-center">
-        <h1 className="font-display text-gold text-4xl font-black tracking-widest drop-shadow-2xl sm:text-6xl">GALAXY FORTUNE</h1>
-        <p className="font-display text-gold text-3xl font-black tracking-[0.3em] sm:text-5xl">1000</p>
+        <h1 className={cn("font-display text-gold text-4xl font-black tracking-widest drop-shadow-2xl sm:text-6xl", titleZap && "animate-zap-title")}>GALAXY FORTUNE</h1>
+        <p ref={titleRef} className={cn("font-display text-gold text-3xl font-black tracking-[0.3em] sm:text-5xl", titleZap && "animate-zap-title")}>1000</p>
         {!real && <span className="absolute -top-2 right-0 rotate-6 rounded-md bg-accent px-2 py-0.5 font-display text-xs font-black tracking-widest text-accent-foreground shadow-gold">DEMO</span>}
       </header>
 
