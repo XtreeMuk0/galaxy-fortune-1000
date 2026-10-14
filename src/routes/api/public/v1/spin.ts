@@ -1,18 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { Launch, cors, operatorConfig } from "@/lib/slot/schemas";
 
-const Launch = z.object({
-  operator: z.string().min(1).max(64), player: z.string().min(1).max(128),
-  currency: z.string().regex(/^[A-Z]{3}$/), session: z.string().min(1).max(256),
-  wallet: z.string().url().max(512), ts: z.string().regex(/^\d+$/), sig: z.string().regex(/^[a-f0-9]{64}$/),
-});
 const Body = z.object({ mode: z.enum(["demo", "real"]), bet: z.number().positive(), buy: z.enum(["bonus", "super"]).nullable().optional(), launch: Launch.optional(), config: z.object({ rtp: z.number().min(94).max(97), volatility: z.enum(["medium", "high", "extreme"]) }).optional() });
-
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
 
 export const Route = createFileRoute("/api/public/v1/spin")({
   server: {
@@ -21,23 +11,31 @@ export const Route = createFileRoute("/api/public/v1/spin")({
       POST: async ({ request }) => {
         const parsed = Body.safeParse(await request.json().catch(() => null));
         if (!parsed.success) return Response.json({ error: "invalid_request" }, { status: 400, headers: cors });
-        const { playRound } = await import("@/lib/slot/engine");
-        let round;
+        const { startRound, gambleChance } = await import("@/lib/slot/engine");
+        const st = await import("@/lib/slot/state.server");
+        const real = parsed.data.mode === "real";
         // En dinero real el RTP/volatilidad los fija el casino (variables del servidor), nunca el jugador
-        const cfg = parsed.data.mode === "real"
-          ? { rtp: Number(process.env["OPERATOR_RTP"] ?? 96), volatility: (process.env["OPERATOR_VOLATILITY"] ?? "high") as "medium" | "high" | "extreme" }
-          : parsed.data.config ?? null;
-        try { round = playRound(parsed.data.bet, parsed.data.buy ?? null, cfg); } catch { return Response.json({ error: "invalid_bet" }, { status: 400, headers: cors }); }
+        const cfg = real ? operatorConfig() : parsed.data.config ?? null;
+        let res;
+        try { res = startRound(parsed.data.bet, parsed.data.buy ?? null, cfg); } catch { return Response.json({ error: "invalid_bet" }, { status: 400, headers: cors }); }
+        const pendingOut = async () => res.pending
+          ? { pending: res.pending, chance: gambleChance(res.pending), token: await st.signState({ s: res.pending, m: parsed.data.mode, who: st.whoOf(parsed.data.launch) }) }
+          : {};
 
-        if (parsed.data.mode === "demo") return Response.json({ round, balance: null }, { headers: cors });
+        if (!real) return Response.json({ round: res.round ?? null, ...(await pendingOut()), balance: null }, { headers: cors });
 
         const secret = process.env["OPERATOR_SECRET"];
         if (!secret || !parsed.data.launch) return Response.json({ error: "real_mode_unavailable" }, { status: 403, headers: cors });
         const w = await import("@/lib/slot/wallet.server");
         if (!(await w.verifyLaunch(parsed.data.launch, secret))) return Response.json({ error: "invalid_signature" }, { status: 401, headers: cors });
         try {
-          const res = await w.settleRound(parsed.data.launch, secret, round);
-          return Response.json({ round, balance: res?.balance ?? null }, { headers: cors });
+          if (res.round) {
+            const r = await w.settleRound(parsed.data.launch, secret, res.round);
+            return Response.json({ round: res.round, balance: r?.balance ?? null }, { headers: cors });
+          }
+          const p = res.pending!;
+          const d = await w.debitRound(parsed.data.launch, secret, { roundId: p.roundId, cost: p.cost, buy: p.buy, gameId: "galaxy-fortune-1000" });
+          return Response.json({ round: null, ...(await pendingOut()), balance: d?.balance ?? null }, { headers: cors });
         } catch (e) {
           console.error("wallet error", e);
           const msg = String((e as Error).message);
