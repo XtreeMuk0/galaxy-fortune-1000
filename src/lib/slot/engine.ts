@@ -231,7 +231,7 @@ function tumbleOnce(prev: SpinStep, bet: number, scale: number, sticky: Map<numb
       const s = pick(); return { s: s === "WILD" || s === "SCATTER" ? "J" : s };
     });
     const next = [...fresh, ...kept];
-    next.forEach((c, row) => { if (c.s === "ORB" && "v" in c && c.v !== undefined) orbs.push({ reel, row, value: c.v }); });
+    next.forEach((c, row) => { const v = (c as { v?: number }).v; if (c.s === "ORB" && v !== undefined) orbs.push({ reel, row, value: v }); });
     grid.push(next.map((c) => c.s));
   });
   const st = evaluate(grid, bet, orbs, scale, sticky);
