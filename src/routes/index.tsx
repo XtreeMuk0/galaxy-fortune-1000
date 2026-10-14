@@ -117,6 +117,7 @@ function Game() {
   const [showPay, setShowPay] = useState(false);
   const [showHist, setShowHist] = useState(false);
   const bet = BET_LEVELS[betIdx]!;
+  betRef.current = bet;
   const autoRef = useRef(auto);
   autoRef.current = auto;
   const [turbo, setTurbo] = useState(false);
