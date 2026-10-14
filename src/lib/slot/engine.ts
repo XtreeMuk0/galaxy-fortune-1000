@@ -79,7 +79,7 @@ export interface StickyWild { reel: number; value: number; isNew: boolean; battl
 export type BuyType = "bonus" | "super";
 export interface RoundResult {
   config: GameConfig; roundId: string; gameId: string; version: string; bet: number; cost: number; buy: BuyType | null;
-  base: SpinStep; freeSpins: SpinStep[]; totalWin: number; capped: boolean; timestamp: string;
+  base: SpinStep; freeSpins: SpinStep[]; superBonus: boolean; totalWin: number; capped: boolean; timestamp: string;
 }
 
 // ---- Función bonus: orbes multiplicadores (solo en giros gratis) ----
@@ -253,10 +253,12 @@ export function playRound(bet: number, buy: BuyType | null = null, cfg?: Partial
   const scale = TUNING.PAY_SCALE * (config.rtp / 96) * VOL_CAL[config.volatility][buy ?? "base"];
   const base = evaluate(buy ? forcedTriggerGrid() : spinGrid(), bet, [], scale);
   const freeSpins: SpinStep[] = [];
-  const table = tilt(buy === "super" ? ORB_TABLE_SUPER : ORB_TABLE, config.volatility);
+  // 3-4 scatters = bono normal; 5+ scatters en juego normal = Super Bonus
+  const isSuper = buy === "super" || (buy === null && base.scatterCount >= 5);
+  const table = tilt(isSuper ? ORB_TABLE_SUPER : ORB_TABLE, config.volatility);
   const x1000At = new Set<number>();
   // Super: 2 x1000 en tiradas aleatorias; cada uno aparece solo con cierta probabilidad (no siempre toca)
-  if (buy === "super") {
+  if (isSuper) {
     const spots = new Set<number>();
     while (spots.size < SUPER_X1000_COUNT) spots.add(Math.floor(rand() * base.freeSpinsAwarded));
     spots.forEach((i) => { if (rand() < TUNING.SUPER_X1000_CHANCE) x1000At.add(i); });
@@ -264,7 +266,7 @@ export function playRound(bet: number, buy: BuyType | null = null, cfg?: Partial
   const sticky = new Map<number, number>();
   let remaining = base.freeSpinsAwarded;
   while (remaining > 0 && freeSpins.length < 100) {
-    const step = freeSpin(bet, table, x1000At.has(freeSpins.length), buy === "super" ? TUNING.SUPER_ORB_CHANCE : TUNING.ORB_CHANCE, scale, sticky, buy === "super");
+    const step = freeSpin(bet, table, x1000At.has(freeSpins.length), isSuper ? TUNING.SUPER_ORB_CHANCE : TUNING.ORB_CHANCE, scale, sticky, isSuper);
     freeSpins.push(step);
     remaining += step.freeSpinsAwarded - 1; // reactivación
   }
@@ -274,6 +276,6 @@ export function playRound(bet: number, buy: BuyType | null = null, cfg?: Partial
   return {
     roundId: globalThis.crypto.randomUUID(), gameId: GAME_ID, version: GAME_VERSION,
     bet, cost: round2(bet * (buy ? BUY_COST[buy] : 1)), buy,
-    base, freeSpins, totalWin, capped, config, timestamp: new Date().toISOString(),
+    base, freeSpins, superBonus: isSuper, totalWin, capped, config, timestamp: new Date().toISOString(),
   };
 }

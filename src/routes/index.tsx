@@ -168,7 +168,7 @@ function Game() {
       await animateStep(round.base);
       if (round.base.win > 0) setLastWin(round.base.win);
       if (round.freeSpins.length) {
-        setBanner({ title: buy === "super" ? `SUPER BONUS · ${round.base.freeSpinsAwarded} GIROS` : `${round.base.freeSpinsAwarded} GIROS GRATIS` });
+        setBanner({ title: round.superBonus ? `SUPER BONUS · ${round.base.freeSpinsAwarded} GIROS` : `${round.base.freeSpinsAwarded} GIROS GRATIS` });
         await sleep(1800); setBanner(null);
         let acc = round.base.win;
         for (let i = 0; i < round.freeSpins.length; i++) {
