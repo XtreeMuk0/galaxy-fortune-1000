@@ -264,7 +264,7 @@ export function playRound(bet: number, buy: BuyType | null = null, cfg?: Partial
   const sticky = new Map<number, number>();
   let remaining = base.freeSpinsAwarded;
   while (remaining > 0 && freeSpins.length < 100) {
-    const step = freeSpin(bet, table, x1000At.has(freeSpins.length), buy === "super" ? TUNING.SUPER_ORB_CHANCE : TUNING.ORB_CHANCE, scale, sticky);
+    const step = freeSpin(bet, table, x1000At.has(freeSpins.length), buy === "super" ? TUNING.SUPER_ORB_CHANCE : TUNING.ORB_CHANCE, scale, sticky, buy === "super");
     freeSpins.push(step);
     remaining += step.freeSpinsAwarded - 1; // reactivación
   }
