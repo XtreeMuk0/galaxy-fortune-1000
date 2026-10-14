@@ -217,7 +217,6 @@ function Game() {
         }
         setFs(null); setMulti(null); await sleep(600); setStickies(new Map());
       }
-      if (round.minPaid) { setBanner({ title: "PAGO MÍNIMO 60 %", amount: round.totalWin }); await sleep(2200); setBanner(null); }
       if (round.totalWin >= bet * 15) { setBanner({ title: round.capped ? "MAX WIN" : round.totalWin >= bet * 500 ? "GALACTIC WIN" : round.totalWin >= bet * 50 ? "MEGA WIN" : "BIG WIN", amount: round.totalWin }); setTimeout(() => setBanner(null), 2600); }
       if (real) { if (typeof json.balance === "number") setBalance(json.balance); }
       else setBalance((b) => +(b + round.totalWin).toFixed(2));

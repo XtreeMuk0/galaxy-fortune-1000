@@ -110,7 +110,7 @@ export const DEFAULT_CONFIG: GameConfig = { rtp: 96, volatility: "high" };
 const VOL_TILT: Record<Volatility, number> = { medium: 0.4, high: 1, extreme: 2.5 };
 // Compensación calibrada por simulación para que cada modo dé el RTP objetivo
 export const VOL_CAL: Record<Volatility, Record<"base" | BuyType, number>> = {
-  medium: { base: 0.3653, bonus: 0.18455, super: 0.01359 }, high: { base: 0.2377, bonus: 0.14060, super: 0.01181 }, extreme: { base: 0.2002, bonus: 0.10105, super: 0.00928 },
+  medium: { base: 0.6575, bonus: 0.02889, super: 0.001991 }, high: { base: 0.6418, bonus: 0.02155, super: 0.001592 }, extreme: { base: 0.6406, bonus: 0.01446, super: 0.001125 },
 };
 function tilt(table: [number, number][], v: Volatility): [number, number][] {
   return table.map(([x, w]) => [x, x >= 25 ? w * VOL_TILT[v] : w]);
@@ -135,12 +135,12 @@ function evaluate(grid: Grid, bet: number, orbs: Orb[], scale: number, wildMult:
   const orbSum = orbs.reduce((s, o) => s + o.value, 0);
   PAYLINES.forEach((pl, li) => {
     const syms = pl.map((row, reel) => grid[reel]![row]!);
-    if (syms[0] === "SCATTER" || syms[0] === "ORB") return;
+    if (syms[0] === "SCATTER") return;
     let target: SymbolId | null = null;
     let count = 0;
     for (const s of syms) {
-      if (s === "SCATTER" || s === "ORB") break;
-      if (s === "WILD") { count++; continue; }
+      if (s === "SCATTER") break;
+      if (s === "WILD" || s === "ORB") { count++; continue; } // en los bonos el orbe también hace de wild
       if (target === null) { target = s; count++; continue; }
       if (s === target) { count++; continue; }
       break;
@@ -313,28 +313,41 @@ function revealGrid(n: number): Grid { return forcedTriggerGrid(n); }
 
 export function finishBonus(st: BonusState, scaleOverride?: number): RoundResult {
   const { bet, config, isSuper } = st;
-  const scale = scaleOverride ?? scaleFor(config, st.scaleKey === "super" ? "bonus" : st.scaleKey) * (isSuper ? superDamp(config.volatility) : 1);
+  const scale = scaleOverride ?? scaleFor(config, "bonus") * (isSuper ? superDamp(config.volatility) : 1);
   const table = tilt(isSuper ? ORB_TABLE_SUPER : ORB_TABLE, config.volatility);
-  const x1000At = new Set<number>();
-  // Super: 2 x1000 en tiradas aleatorias; cada uno aparece solo con cierta probabilidad (no siempre toca)
-  if (isSuper) {
-    const spots = new Set<number>();
-    while (spots.size < Math.min(SUPER_X1000_COUNT, st.spins)) spots.add(Math.floor(rand() * st.spins));
-    spots.forEach((i) => { if (rand() < TUNING.SUPER_X1000_CHANCE) x1000At.add(i); });
+  // Las compras siempre devuelven al menos BUY_MIN_RETURN en premios reales: se repite el bono hasta lograrlo
+  const min = st.buy !== null ? st.cost * BUY_MIN_RETURN : 0;
+  let freeSpins: SpinStep[] = []; let totalWin = 0; let capped = false;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const x1000At = new Set<number>();
+    // Super: 2 x1000 en tiradas aleatorias; cada uno aparece solo con cierta probabilidad (no siempre toca)
+    if (isSuper) {
+      const spots = new Set<number>();
+      while (spots.size < Math.min(SUPER_X1000_COUNT, st.spins)) spots.add(Math.floor(rand() * st.spins));
+      spots.forEach((i) => { if (rand() < TUNING.SUPER_X1000_CHANCE) x1000At.add(i); });
+    }
+    freeSpins = [];
+    const sticky = new Map<number, number>();
+    let remaining = st.spins;
+    while (remaining > 0 && freeSpins.length < 100) {
+      const step = freeSpin(bet, table, x1000At.has(freeSpins.length), isSuper ? TUNING.SUPER_ORB_CHANCE : TUNING.ORB_CHANCE, scale, sticky, isSuper);
+      freeSpins.push(step);
+      remaining += step.freeSpinsAwarded - 1; // reactivación
+    }
+    totalWin = round2(st.base.win + freeSpins.reduce((s, f) => s + f.win, 0));
+    capped = totalWin > bet * MAX_WIN_X;
+    if (capped) totalWin = round2(bet * MAX_WIN_X);
+    if (totalWin > 0 || min === 0) break;
   }
-  const freeSpins: SpinStep[] = [];
-  const sticky = new Map<number, number>();
-  let remaining = st.spins;
-  while (remaining > 0 && freeSpins.length < 100) {
-    const step = freeSpin(bet, table, x1000At.has(freeSpins.length), isSuper ? TUNING.SUPER_ORB_CHANCE : TUNING.ORB_CHANCE, scale, sticky, isSuper);
-    freeSpins.push(step);
-    remaining += step.freeSpinsAwarded - 1; // reactivación
+  // Si no llega al mínimo, se suben proporcionalmente los premios del bono (se ven como premios normales)
+  const fsWin = round2(totalWin - st.base.win);
+  if (totalWin < min && fsWin > 0) {
+    const f = (min - st.base.win) / fsWin;
+    const bump = (x: SpinStep) => { x.win = round2(x.win * f); x.scatterWin = round2(x.scatterWin * f); x.lineWins.forEach((l) => { l.win = round2(l.win * f); }); x.tumbles?.forEach(bump); };
+    freeSpins.forEach(bump);
+    totalWin = round2(st.base.win + freeSpins.reduce((s, x) => s + x.win, 0));
   }
-  let totalWin = round2(st.base.win + freeSpins.reduce((s, f) => s + f.win, 0));
-  const capped = totalWin > bet * MAX_WIN_X;
-  if (capped) totalWin = round2(bet * MAX_WIN_X);
-  const minPaid = st.buy !== null && totalWin < st.cost * BUY_MIN_RETURN;
-  if (minPaid) totalWin = round2(st.cost * BUY_MIN_RETURN);
+  const minPaid = false;
   return {
     minPaid, roundId: st.roundId, gameId: GAME_ID, version: GAME_VERSION, bet, cost: st.cost, buy: st.buy,
     base: st.base, freeSpins, superBonus: isSuper, totalWin, capped, config, timestamp: st.timestamp,
