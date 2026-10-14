@@ -270,7 +270,8 @@ export function gambleChance(st: BonusState): number | null {
   const lose = bonusEV(v, st.isSuper, Math.max(1, Math.floor(st.spins / 2)));
   const win = bonusEV(v, st.isSuper || next >= SUPER_LEVEL, levelSpins(next));
   // Neutral en RTP multiplicado por GAMBLE_HARDNESS (<1 = más difícil; apostar baja el RTP)
-  const p = GAMBLE_HARDNESS * (cur - lose) / (win - lose);
+  const crossToSuper = !st.isSuper && next >= SUPER_LEVEL;
+  const p = GAMBLE_HARDNESS * (crossToSuper ? 0.5 : 1) * (cur - lose) / (win - lose);
   return Math.min(0.95, Math.max(0.01, Math.round(p * 10000) / 10000));
 }
 /** r: número aleatorio [0,1) generado por el servidor. Si se pierde, la apuesta termina con la mitad de giros. */
