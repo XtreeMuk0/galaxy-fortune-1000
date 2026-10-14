@@ -15,3 +15,4 @@
 - RTP (94-97%) and volatility (medium/high/extreme) are per-round GameConfig passed to playRound; VOL_CAL per mode is calibrated with `bun scripts/rtp-cal.ts`. Why: each config must hit its RTP.
 
 - Bonus gamble (ruleta) is stateless: pending BonusState is HMAC-signed with GAME_STATE_SECRET and the gamble outcome derives from the token signature, so replaying a token repeats the result. Odds come from BONUS_EV (scripts/ev-table.ts) times GAMBLE_HARDNESS (gambling lowers RTP by design); check with scripts/rtp-gamble.ts. Why: server-authoritative without a database. Before real money a single-use store for tokens is needed (an old pre-loss token can still be played).
+- Buy min-return (BUY_MIN_RETURN) is paid by scaling up that bonus's own line wins, never as a separate payout; natural free spins use the bonus scale and VOL_CAL.base only tunes the line game. Why: the floor must look like normal prizes and RTP per mode stays separable.
