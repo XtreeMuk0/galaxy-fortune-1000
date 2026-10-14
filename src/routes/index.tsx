@@ -9,7 +9,7 @@ import charCast from "@/assets/char-cast.png";
 import { EpicBolt } from "@/components/slot/EpicBolt";
 import { SlotSymbol } from "@/components/slot/SlotSymbol";
 import { GambleWheel } from "@/components/slot/GambleWheel";
-import { ALL_SYMBOLS, SYMBOL_NAME } from "@/components/slot/symbols";
+import { ALL_SYMBOLS, SYMBOL_IMG, SYMBOL_NAME } from "@/components/slot/symbols";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
