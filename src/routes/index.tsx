@@ -17,10 +17,10 @@ const VOL_LABEL: Record<Volatility, string> = { medium: "Media", high: "Alta", e
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Galaxias — Slot espacial 5x3" },
-      { name: "description", content: "Juega a Galaxias: 20 líneas, wilds galácticos y giros gratis x2." },
-      { property: "og:title", content: "Galaxias — Slot espacial 5x3" },
-      { property: "og:description", content: "20 líneas, wilds galácticos y giros gratis x2." },
+      { title: "Galaxy Fortune 1000 · Slot 6x5" },
+      { name: "description", content: "Galaxy Fortune 1000: 6x5, 50 líneas, wilds galácticos y giros gratis x2." },
+      { property: "og:title", content: "Galaxy Fortune 1000 · Slot 6x5" },
+      { property: "og:description", content: "50 líneas, wilds galácticos y giros gratis x2." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -199,9 +199,9 @@ function Game() {
                 GIROS GRATIS · Quedan {fs.left} · Total {fmt(fs.win)}
               </div>
             )}
-            <div className="grid grid-cols-5 gap-1.5 sm:gap-3">
+            <div className="grid grid-cols-6 gap-1 sm:gap-2">
               {grid.map((col, r) => (
-                <div key={r} className="relative h-[16rem] overflow-hidden rounded-xl border border-border bg-background/40 sm:h-[24rem]">
+                <div key={r} className="relative h-[18rem] overflow-hidden rounded-xl border border-border bg-background/40 sm:h-[32rem]">
                   {stickies.has(r) && !spinning[r] ? (
                     <div className="animate-land relative flex h-full flex-col items-center justify-center bg-accent/20 shadow-gold">
                       <SlotSymbol id="WILD" className="h-2/3" win={[...winPos].some((k) => k.startsWith(`${r}-`))} />
@@ -211,11 +211,11 @@ function Game() {
                   ) : spinning[r] ? (
                     <div className="animate-reel-spin flex flex-col">
                       {[...ALL_SYMBOLS, ...ALL_SYMBOLS].map((s, i) => (
-                        <div key={i} className="h-[5.33rem] sm:h-[8rem]"><SlotSymbol id={s} /></div>
+                        <div key={i} className="h-[3.6rem] sm:h-[6.4rem]"><SlotSymbol id={s} /></div>
                       ))}
                     </div>
                   ) : (
-                    <div className="animate-land grid h-full grid-rows-3">
+                    <div className="animate-land grid h-full grid-rows-5">
                       {col.map((s, row) => (
                         <SlotSymbol key={row} id={s} value={orbs.get(`${r}-${row}`)} win={winPos.has(`${r}-${row}`)} className={winPos.size && !winPos.has(`${r}-${row}`) ? "opacity-40" : ""} />
                       ))}
@@ -364,7 +364,7 @@ function Paytable({ open, onOpenChange, bet, fmt }: { open: boolean; onOpenChang
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader><DialogTitle className="font-display text-gold text-2xl">Tabla de pagos</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">20 líneas fijas, pagan de izquierda a derecha. La Galaxia sustituye a todos menos al Agujero negro. Valores para la apuesta actual.</p>
+        <p className="text-sm text-muted-foreground">50 líneas fijas, pagan de izquierda a derecha. La Galaxia sustituye a todos menos al Agujero negro. Valores para la apuesta actual.</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {rows.map(([s, p]) => (
             <div key={s} className="flex items-center gap-2 rounded-xl border border-border bg-muted p-2">

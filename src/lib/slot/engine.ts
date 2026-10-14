@@ -1,18 +1,18 @@
 // Galaxias — motor matemático puro. Se ejecuta en el servidor (autoritativo).
-// 5 rodillos x 3 filas, 20 líneas fijas, WILD sustituye, SCATTER x3+ = giros gratis con orbes multiplicadores.
+// 6 rodillos x 5 filas, 50 líneas fijas, WILD sustituye, SCATTER x3+ = giros gratis con orbes multiplicadores.
 
 export type SymbolId =
   | "WILD" | "SCATTER" | "ASTRO" | "PLANET" | "UFO" | "COMET" | "CRYSTAL"
   | "A" | "K" | "Q" | "J" | "ORB";
 
-export const ROWS = 3;
-export const REELS = 5;
+export const ROWS = 5;
+export const REELS = 6;
 export const GAME_ID = "galaxy-fortune-1000";
 export const GAME_VERSION = "1.0.0";
 
 // Pesos por rodillo (tira virtual)
 const WEIGHTS: Record<Exclude<SymbolId, "ORB">, number> = {
-  WILD: 2, SCATTER: 2, ASTRO: 4, PLANET: 6, UFO: 7, COMET: 8, CRYSTAL: 9,
+  WILD: 2, SCATTER: 1, ASTRO: 4, PLANET: 6, UFO: 7, COMET: 8, CRYSTAL: 9,
   A: 12, K: 13, Q: 14, J: 15,
 };
 
@@ -33,12 +33,21 @@ export const PAYTABLE: Partial<Record<SymbolId, [number, number, number]>> = {
 export const SCATTER_PAY: Record<number, number> = { 3: 2, 4: 10, 5: 50 };
 export const FREE_SPINS: Record<number, number> = { 3: 10, 4: 15, 5: 20 };
 
-export const PAYLINES: number[][] = [
-  [1,1,1,1,1],[0,0,0,0,0],[2,2,2,2,2],[0,1,2,1,0],[2,1,0,1,2],
-  [0,0,1,2,2],[2,2,1,0,0],[1,0,0,0,1],[1,2,2,2,1],[0,1,1,1,0],
-  [2,1,1,1,2],[1,0,1,2,1],[1,2,1,0,1],[0,1,0,1,0],[2,1,2,1,2],
-  [1,1,0,1,1],[1,1,2,1,1],[0,2,0,2,0],[2,0,2,0,2],[0,2,2,2,0],
+// 50 líneas para 6x5: formas base desplazadas a todas las filas posibles
+const SHAPES: number[][] = [
+  [0,0,0,0,0,0],[0,1,2,2,1,0],[2,1,0,0,1,2],[0,1,0,1,0,1],[1,0,1,0,1,0],
+  [0,0,1,1,2,2],[2,2,1,1,0,0],[0,1,1,1,1,0],[1,0,0,0,0,1],[0,0,1,1,0,0],[1,1,0,0,1,1],
+  [0,1,2,1,0,1],[2,1,0,1,2,1],[0,0,0,1,1,1],[1,1,1,0,0,0],
 ];
+export const PAYLINES: number[][] = (() => {
+  const out: number[][] = []; const seen = new Set<string>();
+  for (let off = 0; off < 5; off++) for (const sh of SHAPES) {
+    const l = sh.map((d) => d + off); if (Math.max(...l) > 4) continue;
+    const k = l.join(); if (!seen.has(k)) { seen.add(k); out.push(l); }
+  }
+  out.sort((a, b) => Number(new Set(a).size > 1) - Number(new Set(b).size > 1));
+  return out.slice(0, 50);
+})();
 export const LINES = PAYLINES.length;
 export const BET_LEVELS = [0.2, 0.4, 1, 2, 4, 10, 20, 50, 100];
 
@@ -74,7 +83,7 @@ export interface RoundResult {
 
 // ---- Función bonus: orbes multiplicadores (solo en giros gratis) ----
 // Valores ajustados por simulación (scripts/rtp-sim.ts) para controlar el RTP.
-export const TUNING = { PAY_SCALE: 4.08, ORB_CHANCE: 0.2, SUPER_ORB_CHANCE: 0.2, SUPER_X1000_CHANCE: 0.765 }; // ajustado por simulación
+export const TUNING = { PAY_SCALE: 4.08, ORB_CHANCE: 0.1, SUPER_ORB_CHANCE: 0.1, SUPER_X1000_CHANCE: 0.765 }; // ajustado por simulación
 export const ORB_TABLE: [number, number][] = [
   [2, 80], [3, 120], [5, 150], [10, 80], [25, 35], [50, 15], [100, 6], [250, 2], [500, 0.6], [1000, 0.15],
 ];
@@ -87,7 +96,7 @@ export const BATTLE_LOW = [2, 3];
 // Multiplicador alto de la batalla: hasta x1000 (muy raro)
 export const BATTLE_HIGH: [number, number][] = [[5, 400], [10, 250], [25, 120], [50, 60], [100, 25], [250, 8], [500, 3], [1000, 1]];
 export const MAX_STICKY = 3; // máximo de rodillos wild pegajosos por bono
-export const WILD_FS_KEEP = 0.12; // probabilidad de que un wild caído en giros gratis cuente (controla frecuencia)
+export const WILD_FS_KEEP = 0.07; // probabilidad de que un wild caído en giros gratis cuente (controla frecuencia)
 export const MAX_WIN_X = 10000; // premio máximo por ronda (x apuesta)
 
 export type Volatility = "medium" | "high" | "extreme";
@@ -99,7 +108,7 @@ export const DEFAULT_CONFIG: GameConfig = { rtp: 96, volatility: "high" };
 const VOL_TILT: Record<Volatility, number> = { medium: 0.4, high: 1, extreme: 2.5 };
 // Compensación calibrada por simulación para que cada modo dé el RTP objetivo
 export const VOL_CAL: Record<Volatility, Record<"base" | BuyType, number>> = {
-  medium: { base: 0.7036, bonus: 0.5635, super: 0.7033 }, high: { base: 0.729, bonus: 0.4467, super: 0.6797 }, extreme: { base: 0.5423, bonus: 0.3351, super: 0.6118 },
+  medium: { base: 0.5389, bonus: 0.4136, super: 0.459 }, high: { base: 0.5237, bonus: 0.3245, super: 0.4369 }, extreme: { base: 0.4481, bonus: 0.2263, super: 0.396 },
 };
 function tilt(table: [number, number][], v: Volatility): [number, number][] {
   return table.map(([x, w]) => [x, x >= 25 ? w * VOL_TILT[v] : w]);
@@ -194,7 +203,7 @@ function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, o
 
 function forcedTriggerGrid(): Grid {
   const grid = spinGrid().map((col) => col.map((s) => (s === "SCATTER" ? "J" : s)) as SymbolId[]);
-  const reels = [0, 1, 2, 3, 4].sort(() => rand() - 0.5).slice(0, 3);
+  const reels = Array.from({ length: REELS }, (_, i) => i).sort(() => rand() - 0.5).slice(0, 3);
   for (const r of reels) grid[r]![Math.floor(rand() * ROWS)] = "SCATTER";
   return grid;
 }
