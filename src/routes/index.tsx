@@ -54,7 +54,8 @@ function Game() {
   const [vol, setVol] = useState<Volatility>("high");
   const [notice, setNotice] = useState<string | null>(null);
   const [betIdx, setBetIdx] = useState(2);
-  const [grid, setGrid] = useState<Grid>(() => randGrid());
+  const [grid, setGrid] = useState<Grid>(() => Array.from({ length: REELS }, (_, r) => Array.from({ length: ROWS }, (_, i) => ALL_SYMBOLS[(r * 3 + i + 2) % ALL_SYMBOLS.length]!)));
+  useEffect(() => { setGrid(randGrid()); }, []);
   const [spinning, setSpinning] = useState<boolean[]>(Array(REELS).fill(false));
   const [winPos, setWinPos] = useState<Set<string>>(new Set());
   const [lastWin, setLastWin] = useState(0);
