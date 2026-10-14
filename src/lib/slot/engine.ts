@@ -89,7 +89,7 @@ export const ORB_TABLE: [number, number][] = [
 ];
 // En la super compra los orbes normales no traen x1000; se garantizan 2 x1000 en tiradas aleatorias
 const ORB_TABLE_SUPER = ORB_TABLE.filter(([v]) => v < 1000);
-export const BUY_COST: Record<BuyType, number> = { bonus: 92.0, super: 475.0 };
+export const BUY_COST: Record<BuyType, number> = { bonus: 100, super: 500 };
 export const SUPER_X1000_COUNT = 2;
 // Batalla del wild: un multiplicador bajo contra uno alto, gana uno al azar (50/50)
 export const BATTLE_LOW = [2, 3];
