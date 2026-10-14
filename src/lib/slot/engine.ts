@@ -90,7 +90,7 @@ export const ORB_TABLE: [number, number][] = [
 ];
 // En la super compra los orbes normales no traen x1000; se garantizan 2 x1000 en tiradas aleatorias
 const ORB_TABLE_SUPER = ORB_TABLE.filter(([v]) => v < 1000);
-export const BUY_COST: Record<BuyType, number> = { bonus: 100, super: 500 };
+export const BUY_COST: Record<BuyType, number> = { bonus: 100, super: 482.5000 };
 export const SUPER_X1000_COUNT = 2;
 // Batalla del wild: un multiplicador bajo contra uno alto, gana uno al azar (50/50)
 export const BATTLE_LOW = [2, 3];
@@ -109,7 +109,7 @@ export const DEFAULT_CONFIG: GameConfig = { rtp: 96, volatility: "high" };
 const VOL_TILT: Record<Volatility, number> = { medium: 0.4, high: 1, extreme: 2.5 };
 // Compensación calibrada por simulación para que cada modo dé el RTP objetivo
 export const VOL_CAL: Record<Volatility, Record<"base" | BuyType, number>> = {
-  medium: { base: 0.3653, bonus: 0.3006, super: 0.2111 }, high: { base: 0.2377, bonus: 0.2413, super: 0.204 }, extreme: { base: 0.2002, bonus: 0.177, super: 0.1778 },
+  medium: { base: 0.3653, bonus: 0.3006, super: 0.2037 }, high: { base: 0.2377, bonus: 0.2413, super: 0.1969 }, extreme: { base: 0.2002, bonus: 0.177, super: 0.1716 },
 };
 function tilt(table: [number, number][], v: Volatility): [number, number][] {
   return table.map(([x, w]) => [x, x >= 25 ? w * VOL_TILT[v] : w]);
@@ -211,7 +211,7 @@ function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, o
   return step;
 }
 
-// Cascada (Super Bonus): los símbolos premiados desaparecen y caen nuevos desde arriba.
+// Cascada (Super Bonus): los símbolos premiados desaparecen y re-giran en su mismo hueco.
 // Wilds pegajosos y orbes se quedan; los símbolos nuevos no traen wilds ni scatters.
 export const MAX_TUMBLES = 20;
 function tumbleOnce(prev: SpinStep, bet: number, scale: number, sticky: Map<number, number>): SpinStep {
@@ -221,18 +221,13 @@ function tumbleOnce(prev: SpinStep, bet: number, scale: number, sticky: Map<numb
   const grid: Grid = []; const orbs: Orb[] = [];
   prev.grid.forEach((col, reel) => {
     if (sticky.has(reel)) { grid.push([...col]); return; }
-    const kept: { s: SymbolId; v?: number }[] = [];
-    col.forEach((s, row) => {
+    // Re-giro en el mismo hueco: nada se mueve, solo se reemplazan los premiados
+    grid.push(col.map((s, row) => {
       const k = `${reel}-${row}`;
-      if (remove.has(k) && s !== "ORB" && s !== "WILD") return;
-      kept.push(orbAt.has(k) ? { s, v: orbAt.get(k)! } : { s });
-    });
-    const fresh: { s: SymbolId }[] = Array.from({ length: ROWS - kept.length }, () => {
-      const s = pick(); return { s: s === "WILD" || s === "SCATTER" ? "J" : s };
-    });
-    const next = [...fresh, ...kept];
-    next.forEach((c, row) => { const v = (c as { v?: number }).v; if (c.s === "ORB" && v !== undefined) orbs.push({ reel, row, value: v }); });
-    grid.push(next.map((c) => c.s));
+      if (orbAt.has(k)) { orbs.push({ reel, row, value: orbAt.get(k)! }); return s; }
+      if (!remove.has(k) || s === "WILD") return s;
+      const n = pick(); return n === "WILD" || n === "SCATTER" ? "J" : n;
+    }));
   });
   const st = evaluate(grid, bet, orbs, scale, sticky);
   st.scatterWin = 0; st.freeSpinsAwarded = 0;
