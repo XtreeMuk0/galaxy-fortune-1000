@@ -359,7 +359,7 @@ function RoundBtn({ children, onClick, disabled, label, active }: { children: Re
 
 function Paytable({ open, onOpenChange, bet, fmt }: { open: boolean; onOpenChange: (o: boolean) => void; bet: number; fmt: (n: number) => string }) {
   const lineBet = bet / 20;
-  const rows = useMemo(() => Object.entries(PAYTABLE) as [SymbolId, [number, number, number]][], []);
+  const rows = useMemo(() => Object.entries(PAYTABLE) as [SymbolId, number[]][], []);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
@@ -370,7 +370,7 @@ function Paytable({ open, onOpenChange, bet, fmt }: { open: boolean; onOpenChang
             <div key={s} className="flex items-center gap-2 rounded-xl border border-border bg-muted p-2">
               <div className="h-14 w-14 shrink-0"><SlotSymbol id={s} /></div>
               <div className="text-xs">
-                {[5, 4, 3].map((n) => <p key={n}><span className="text-muted-foreground">{n}×</span> {fmt(p[n - 3]! * lineBet)}</p>)}
+                {[7, 6, 5, 4, 3].map((n) => <p key={n}><span className="text-muted-foreground">{n}×</span> {fmt(p[n - 3]! * lineBet)}</p>)}
               </div>
             </div>
           ))}
@@ -379,7 +379,7 @@ function Paytable({ open, onOpenChange, bet, fmt }: { open: boolean; onOpenChang
           <div className="h-16 w-16 shrink-0"><SlotSymbol id="SCATTER" /></div>
           <div className="text-sm">
             <p className="font-bold">{SYMBOL_NAME.SCATTER} — paga en cualquier posición</p>
-            {[5, 4, 3].map((n) => <p key={n}>{n}× → {fmt(SCATTER_PAY[n]! * bet)} + {FREE_SPINS[n]} giros gratis</p>)}
+            {[7, 6, 5, 4, 3].map((n) => <p key={n}>{n}× → {fmt(SCATTER_PAY[n]! * bet)} + {FREE_SPINS[n]} giros gratis</p>)}
             <p className="text-muted-foreground">Los giros gratis se pueden reactivar.</p>
           </div>
         </div>

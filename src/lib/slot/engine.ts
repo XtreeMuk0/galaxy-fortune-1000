@@ -17,21 +17,21 @@ const WEIGHTS: Record<Exclude<SymbolId, "ORB">, number> = {
 };
 
 // Pagos en multiplicador de la apuesta por línea (3,4,5 iguales)
-export const PAYTABLE: Partial<Record<SymbolId, [number, number, number]>> = {
-  WILD: [50, 250, 1000],
-  ASTRO: [25, 100, 500],
-  PLANET: [15, 60, 250],
-  UFO: [10, 40, 150],
-  COMET: [8, 25, 100],
-  CRYSTAL: [6, 20, 80],
-  A: [4, 12, 40],
-  K: [3, 10, 30],
-  Q: [2, 8, 25],
-  J: [2, 6, 20],
+export const PAYTABLE: Partial<Record<SymbolId, number[]>> = {
+  WILD: [50, 250, 1000, 2500, 5000],
+  ASTRO: [25, 100, 500, 1000, 2000],
+  PLANET: [15, 60, 250, 500, 1000],
+  UFO: [10, 40, 150, 300, 600],
+  COMET: [8, 25, 100, 200, 400],
+  CRYSTAL: [6, 20, 80, 160, 300],
+  A: [4, 12, 40, 80, 150],
+  K: [3, 10, 30, 60, 120],
+  Q: [2, 8, 25, 50, 100],
+  J: [2, 6, 20, 40, 80],
 };
 // Pago de scatter: multiplicador de la apuesta TOTAL
-export const SCATTER_PAY: Record<number, number> = { 3: 2, 4: 10, 5: 50 };
-export const FREE_SPINS: Record<number, number> = { 3: 10, 4: 15, 5: 20 };
+export const SCATTER_PAY: Record<number, number> = { 3: 2, 4: 10, 5: 50, 6: 100, 7: 200 };
+export const FREE_SPINS: Record<number, number> = { 3: 10, 4: 15, 5: 20, 6: 25, 7: 30 };
 
 // 50 líneas para 6x5: formas base desplazadas a todas las filas posibles
 const SHAPES: number[][] = [
@@ -108,7 +108,7 @@ export const DEFAULT_CONFIG: GameConfig = { rtp: 96, volatility: "high" };
 const VOL_TILT: Record<Volatility, number> = { medium: 0.4, high: 1, extreme: 2.5 };
 // Compensación calibrada por simulación para que cada modo dé el RTP objetivo
 export const VOL_CAL: Record<Volatility, Record<"base" | BuyType, number>> = {
-  medium: { base: 0.3626, bonus: 0.3392, super: 0.4052 }, high: { base: 0.3065, bonus: 0.2596, super: 0.3749 }, extreme: { base: 0.2106, bonus: 0.1822, super: 0.3523 },
+  medium: { base: 0.3709, bonus: 0.3006, super: 0.3801 }, high: { base: 0.2413, bonus: 0.2413, super: 0.3672 }, extreme: { base: 0.2032, bonus: 0.177, super: 0.3323 },
 };
 function tilt(table: [number, number][], v: Volatility): [number, number][] {
   return table.map(([x, w]) => [x, x >= 25 ? w * VOL_TILT[v] : w]);
@@ -159,7 +159,7 @@ function evaluate(grid: Grid, bet: number, orbs: Orb[], scale: number, wildMult:
     }
   });
   const scatterCount = grid.flat().filter((s) => s === "SCATTER").length;
-  const sc = Math.min(scatterCount, 5);
+  const sc = Math.min(scatterCount, 7);
   const multiplier = orbSum || 1;
   // Orbes y wilds pegajosos se suman (no se multiplican entre sí) en cada línea; el scatter solo lleva orbes
   const scatterWin = round2((SCATTER_PAY[sc] ?? 0) * bet * scale * multiplier);
