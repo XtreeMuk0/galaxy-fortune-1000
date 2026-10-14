@@ -98,7 +98,7 @@ export const DEFAULT_CONFIG: GameConfig = { rtp: 96, volatility: "high" };
 const VOL_TILT: Record<Volatility, number> = { medium: 0.4, high: 1, extreme: 2.5 };
 // Compensación calibrada por simulación para que cada modo dé el RTP objetivo
 export const VOL_CAL: Record<Volatility, Record<"base" | BuyType, number>> = {
-  medium: { base: 1.106, bonus: 1.375, super: 1.026 }, high: { base: 0.962, bonus: 0.986, super: 0.982 }, extreme: { base: 0.796, bonus: 0.628, super: 0.882 },
+  medium: { base: 0.4705, bonus: 0.2653, super: 0.4798 }, high: { base: 0.3319, bonus: 0.1877, super: 0.4358 }, extreme: { base: 0.3304, bonus: 0.122, super: 0.3731 },
 };
 function tilt(table: [number, number][], v: Volatility): [number, number][] {
   return table.map(([x, w]) => [x, x >= 25 ? w * VOL_TILT[v] : w]);
