@@ -84,7 +84,8 @@ export const BUY_COST: Record<BuyType, number> = { bonus: 100, super: 500 };
 export const SUPER_X1000_COUNT = 2;
 // Batalla del wild: un multiplicador bajo contra uno alto, gana uno al azar (50/50)
 export const BATTLE_LOW = [2, 3];
-export const BATTLE_HIGH = [5, 10, 25];
+// Multiplicador alto de la batalla: hasta x1000 (muy raro)
+export const BATTLE_HIGH: [number, number][] = [[5, 400], [10, 250], [25, 120], [50, 60], [100, 25], [250, 8], [500, 3], [1000, 1]];
 export const MAX_STICKY = 3; // máximo de rodillos wild pegajosos por bono
 export const WILD_FS_KEEP = 0.12; // probabilidad de que un wild caído en giros gratis cuente (controla frecuencia)
 export const MAX_WIN_X = 10000; // premio máximo por ronda (x apuesta)
@@ -98,7 +99,7 @@ export const DEFAULT_CONFIG: GameConfig = { rtp: 96, volatility: "high" };
 const VOL_TILT: Record<Volatility, number> = { medium: 0.4, high: 1, extreme: 2.5 };
 // Compensación calibrada por simulación para que cada modo dé el RTP objetivo
 export const VOL_CAL: Record<Volatility, Record<"base" | BuyType, number>> = {
-  medium: { base: 0.8208, bonus: 0.5989, super: 0.7396 }, high: { base: 0.6886, bonus: 0.4896, super: 0.6958 }, extreme: { base: 0.4673, bonus: 0.3506, super: 0.6281 },
+  medium: { base: 0.859, bonus: 0.576, super: 0.7162 }, high: { base: 0.6801, bonus: 0.4639, super: 0.6792 }, extreme: { base: 0.5854, bonus: 0.3346, super: 0.6193 },
 };
 function tilt(table: [number, number][], v: Volatility): [number, number][] {
   return table.map(([x, w]) => [x, x >= 25 ? w * VOL_TILT[v] : w]);
@@ -169,7 +170,7 @@ function freeSpin(bet: number, table: [number, number][], forceX1000: boolean, o
     if (sticky.has(reel)) return;
     if (col.includes("WILD") && sticky.size < MAX_STICKY && rand() < WILD_FS_KEEP) {
       const low = BATTLE_LOW[Math.floor(rand() * BATTLE_LOW.length)]!;
-      const high = BATTLE_HIGH[Math.floor(rand() * BATTLE_HIGH.length)]!;
+      const high = pickWeighted(BATTLE_HIGH);
       sticky.set(reel, rand() < 0.5 ? low : high); fresh.add(reel); battles.set(reel, [low, high]);
     } else col.forEach((s, row) => { if (s === "WILD") col[row] = "J"; });
   });
