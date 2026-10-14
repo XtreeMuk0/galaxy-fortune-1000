@@ -61,6 +61,10 @@ function Game() {
   const [fs, setFs] = useState<{ left: number; total: number; win: number } | null>(null);
   const [orbs, setOrbs] = useState<Map<string, number>>(new Map());
   const [multi, setMulti] = useState<number | null>(null);
+  const [stickies, setStickies] = useState<Map<number, number>>(new Map());
+  const stickyRef = useRef(stickies);
+  stickyRef.current = stickies;
+  const [battle, setBattle] = useState<{ low: number; high: number; winner: number | null } | null>(null);
   const [confirmBuy, setConfirmBuy] = useState<BuyType | null>(null);
   const [banner, setBanner] = useState<{ title: string; amount?: number } | null>(null);
   const [history, setHistory] = useState<RoundResult[]>([]);
@@ -87,15 +91,26 @@ function Game() {
   const animateStep = useCallback(async (step: SpinStep) => {
     const t = turboRef.current;
     setWinPos(new Set()); setOrbs(new Map()); setMulti(null);
-    setSpinning(Array(REELS).fill(true));
+    const held = stickyRef.current;
+    setSpinning(Array.from({ length: REELS }, (_, i) => !held.has(i)));
     await sleep(t ? 250 : 900);
     for (let r = 0; r < REELS; r++) {
+      if (held.has(r)) continue;
       await sleep(r === REELS - 1 && step.scatterCount >= 2 ? (t ? 700 : 1400) : (t ? 120 : 400));
       setGrid((g) => g.map((col, i) => (i === r ? step.grid[r]! : col)));
       setSpinning((s) => s.map((v, i) => (i === r ? false : v)));
     }
     // Pausa para ver el resultado final (incluido el último rodillo)
     await sleep(t ? 450 : 700);
+    // Wilds nuevos: se expanden al rodillo y libran la batalla de multiplicadores
+    for (const w of step.stickyWilds ?? []) {
+      if (!w.isNew) continue;
+      const [low, high] = w.battle;
+      setBattle({ low, high, winner: null }); await sleep(t ? 900 : 1600);
+      setBattle({ low, high, winner: w.value }); await sleep(t ? 700 : 1200);
+      setBattle(null);
+      setStickies((m) => new Map(m).set(w.reel, w.value));
+    }
     const pos = new Set<string>();
     step.lineWins.forEach((l) => l.positions.forEach(([a, b]) => pos.add(`${a}-${b}`)));
     if (step.scatterWin > 0 || step.freeSpinsAwarded) step.grid.forEach((col, a) => col.forEach((s, b) => s === "SCATTER" && pos.add(`${a}-${b}`)));
@@ -110,7 +125,7 @@ function Game() {
   const spin = useCallback(async (buy: BuyType | null = null) => {
     if (busy) return;
     const cost = +(bet * (buy ? BUY_COST[buy] : 1)).toFixed(2);
-    setBusy(true); setError(null); setBanner(null);
+    setBusy(true); setError(null); setBanner(null); setStickies(new Map());
     if (!real) {
       // Demo: recarga automática al quedarse sin saldo
       if (balance < cost) { setNotice(`Saldo recargado: ${fmt(DEMO_BALANCE)}`); setTimeout(() => setNotice(null), 2500); setBalance(+(DEMO_BALANCE - cost).toFixed(2)); }
@@ -136,7 +151,7 @@ function Game() {
           acc += round.freeSpins[i]!.win; if (acc > 0) setLastWin(+acc.toFixed(2));
           setFs({ left: round.freeSpins.length - i - 1, total: round.freeSpins.length, win: acc });
         }
-        setFs(null); setMulti(null);
+        setFs(null); setMulti(null); await sleep(600); setStickies(new Map());
       }
       if (round.totalWin >= bet * 15) { setBanner({ title: round.capped ? "MAX WIN" : round.totalWin >= bet * 500 ? "GALACTIC WIN" : round.totalWin >= bet * 50 ? "MEGA WIN" : "BIG WIN", amount: round.totalWin }); setTimeout(() => setBanner(null), 2600); }
       if (real) { if (typeof json.balance === "number") setBalance(json.balance); }
@@ -186,7 +201,13 @@ function Game() {
             <div className="grid grid-cols-5 gap-1.5 sm:gap-3">
               {grid.map((col, r) => (
                 <div key={r} className="relative h-[16rem] overflow-hidden rounded-xl border border-border bg-background/40 sm:h-[24rem]">
-                  {spinning[r] ? (
+                  {stickies.has(r) && !spinning[r] ? (
+                    <div className="animate-land relative flex h-full flex-col items-center justify-center bg-accent/20 shadow-gold">
+                      <SlotSymbol id="WILD" className="h-2/3" win={[...winPos].some((k) => k.startsWith(`${r}-`))} />
+                      <span className="font-display text-gold mt-1 text-2xl font-black drop-shadow-[0_2px_6px_black] sm:text-4xl">x{stickies.get(r)}</span>
+                      <span className="font-display absolute top-1 text-[0.6rem] font-bold tracking-widest text-accent sm:text-xs">STICKY</span>
+                    </div>
+                  ) : spinning[r] ? (
                     <div className="animate-reel-spin flex flex-col">
                       {[...ALL_SYMBOLS, ...ALL_SYMBOLS].map((s, i) => (
                         <div key={i} className="h-[5.33rem] sm:h-[8rem]"><SlotSymbol id={s} /></div>
@@ -203,6 +224,16 @@ function Game() {
               ))}
             </div>
 
+            {battle && (
+              <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center rounded-[1.35rem] bg-background/75">
+                <p className="font-display mb-3 text-sm font-bold tracking-[0.3em] text-accent sm:text-lg">BATALLA WILD</p>
+                <div className="flex items-center gap-4 sm:gap-8">
+                  {[battle.low, battle.high].map((v, i) => (
+                    <span key={i} className={`font-display text-gold rounded-2xl border-2 px-4 py-2 text-4xl font-black transition-all duration-500 sm:text-6xl ${battle.winner === null ? "animate-win border-primary" : battle.winner === v ? "scale-125 border-accent shadow-gold" : "scale-75 border-border opacity-30"}`}>x{v}</span>
+                  )).flatMap((el, i) => i === 1 ? [<span key="vs" className="font-display text-xl font-black text-primary sm:text-3xl">VS</span>, el] : [el])}
+                </div>
+              </div>
+            )}
             {multi !== null && multi > 1 && !banner && (
               <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 flex -translate-y-1/2 justify-center">
                 <p className="animate-big-win font-display text-gold rounded-2xl bg-background/70 px-6 py-2 text-5xl font-black sm:text-7xl">x{multi}</p>
