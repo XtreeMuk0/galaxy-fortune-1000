@@ -225,3 +225,10 @@
 .fx-astro { animation: fx-astro 2.1s ease-out forwards; }
 @keyframes fx-wild { 0% { transform: scale(0) rotate(0); opacity: 0; } 40% { transform: scale(1.6) rotate(360deg); opacity: 1; filter: brightness(2) drop-shadow(0 0 80px var(--color-accent)); } 75% { opacity: 1; transform: scale(1.4) rotate(380deg); } 100% { transform: scale(0) rotate(720deg); opacity: 0; } }
 .fx-wild { animation: fx-wild 2s ease-in-out forwards; }
+
+/* Fuego alrededor del símbolo premiado y rótulo de ganancia */
+@keyframes fire-flicker { 0%,100% { transform: scale(1) rotate(0); filter: blur(10px) brightness(1); } 25% { transform: scale(1.08) rotate(25deg); filter: blur(12px) brightness(1.4); } 50% { transform: scale(0.96) rotate(50deg); filter: blur(9px) brightness(1.1); } 75% { transform: scale(1.1) rotate(80deg); filter: blur(13px) brightness(1.5); } }
+.fx-fire { background: conic-gradient(from 0deg, oklch(0.65 0.24 30 / .9), oklch(0.85 0.18 80 / .9), oklch(0.6 0.25 25 / .8), oklch(0.9 0.15 95 / .9), oklch(0.65 0.24 30 / .9)); mask: radial-gradient(circle, transparent 38%, #000 52%, transparent 72%); -webkit-mask: radial-gradient(circle, transparent 38%, #000 52%, transparent 72%); animation: fire-flicker .35s ease-in-out infinite; }
+.fx-fire-2 { animation-duration: .5s; animation-direction: reverse; opacity: .8; }
+@keyframes fx-label { 0% { transform: translate(-50%, 20px) scale(.5); opacity: 0; } 15% { transform: translate(-50%, 0) scale(1.15); opacity: 1; } 25%,80% { transform: translate(-50%, 0) scale(1); opacity: 1; } 100% { transform: translate(-50%, -30px) scale(1); opacity: 0; } }
+.fx-label { animation: fx-label 2.1s ease-out forwards; }
