@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, History, Info, Zap, Code2 } from "lucide-react";
 import bg from "@/assets/bg-galaxias.jpg";
+import logo from "@/assets/sym-logo.png.asset.json";
 import { SlotSymbol } from "@/components/slot/SlotSymbol";
 import { GambleWheel } from "@/components/slot/GambleWheel";
 import { ALL_SYMBOLS, SYMBOL_NAME } from "@/components/slot/symbols";
@@ -65,6 +66,7 @@ function Game() {
   const [mini, setMini] = useState<Set<string>>(new Set());
   const [gambleUI, setGambleUI] = useState<GambleUI | null>(null);
   const choiceRef = useRef<((c: "gamble" | "play") => void) | null>(null);
+  const [charReact, setCharReact] = useState(0);
   const [landed, setLanded] = useState<Set<string>>(new Set());
   const [lastWin, setLastWin] = useState(0);
   const [fs, setFs] = useState<{ left: number; total: number; win: number } | null>(null);
@@ -119,6 +121,7 @@ function Game() {
       setBattle({ low, high, winner: w.value }); await sleep(t ? 700 : 1200);
       setBattle(null);
       setStickies((m) => new Map(m).set(w.reel, w.value));
+      setCharReact((n) => n + 1);
     }
     const pos = new Set<string>();
     step.lineWins.forEach((l) => l.positions.forEach(([a, b]) => pos.add(`${a}-${b}`)));
@@ -217,7 +220,6 @@ function Game() {
         }
         setFs(null); setMulti(null); await sleep(600); setStickies(new Map());
       }
-      if (round.minPaid) { setBanner({ title: "PAGO MÍNIMO 60 %", amount: round.totalWin }); await sleep(2200); setBanner(null); }
       if (round.totalWin >= bet * 15) { setBanner({ title: round.capped ? "MAX WIN" : round.totalWin >= bet * 500 ? "GALACTIC WIN" : round.totalWin >= bet * 50 ? "MEGA WIN" : "BIG WIN", amount: round.totalWin }); setTimeout(() => setBanner(null), 2600); }
       if (real) { if (typeof json.balance === "number") setBalance(json.balance); }
       else setBalance((b) => +(b + round.totalWin).toFixed(2));
@@ -249,6 +251,12 @@ function Game() {
     <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-2 py-6">
       <img src={bg} alt="" width={1920} height={1088} className="absolute inset-0 -z-10 h-full w-full object-cover" />
       <div className="absolute inset-0 -z-10 bg-background/30" />
+      {/* Personaje del estudio: flota en el fondo y reacciona a cada wild pegajoso */}
+      <div className="pointer-events-none absolute bottom-0 left-[-6rem] -z-10 hidden w-[34rem] opacity-90 lg:block xl:left-0">
+        <div className="animate-char-float">
+          <img key={charReact} src={logo.url} alt="" className={cn("w-full drop-shadow-[0_0_40px_var(--color-primary)]", charReact > 0 && "animate-char-react")} />
+        </div>
+      </div>
 
       <header className="relative mb-4 text-center">
         <h1 className="font-display text-gold text-4xl font-black tracking-widest drop-shadow-2xl sm:text-6xl">GALAXY FORTUNE</h1>
