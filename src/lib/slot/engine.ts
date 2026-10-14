@@ -98,7 +98,7 @@ export const DEFAULT_CONFIG: GameConfig = { rtp: 96, volatility: "high" };
 const VOL_TILT: Record<Volatility, number> = { medium: 0.4, high: 1, extreme: 2.5 };
 // Compensación calibrada por simulación para que cada modo dé el RTP objetivo
 export const VOL_CAL: Record<Volatility, Record<"base" | BuyType, number>> = {
-  medium: { base: 0.4705, bonus: 0.2653, super: 0.4798 }, high: { base: 0.3319, bonus: 0.1877, super: 0.4358 }, extreme: { base: 0.3304, bonus: 0.122, super: 0.3731 },
+  medium: { base: 1, bonus: 1, super: 1 }, high: { base: 1, bonus: 1, super: 1 }, extreme: { base: 1, bonus: 1, super: 1 },
 };
 function tilt(table: [number, number][], v: Volatility): [number, number][] {
   return table.map(([x, w]) => [x, x >= 25 ? w * VOL_TILT[v] : w]);
@@ -120,6 +120,7 @@ function pickWeighted(table: [number, number][]): number {
 function evaluate(grid: Grid, bet: number, orbs: Orb[], scale: number, wildMult: Map<number, number> = new Map()): SpinStep {
   const lineBet = bet / LINES;
   const lineWins: LineWin[] = [];
+  const orbSum = orbs.reduce((s, o) => s + o.value, 0);
   PAYLINES.forEach((pl, li) => {
     const syms = pl.map((row, reel) => grid[reel]![row]!);
     if (syms[0] === "SCATTER" || syms[0] === "ORB") return;
@@ -139,7 +140,7 @@ function evaluate(grid: Grid, bet: number, orbs: Orb[], scale: number, wildMult:
     const wildPay = wildRun >= 3 ? PAYTABLE.WILD![wildRun - 3]! : 0;
     const [finalSym, finalCount, finalPay]: [SymbolId, number, number] = wildPay > pay ? ["WILD" as SymbolId, wildRun, wildPay] : [sym, count, pay];
     if (finalPay > 0) {
-      let wm = 0;
+      let wm = orbSum;
       for (let r = 0; r < finalCount; r++) wm += wildMult.get(r) ?? 0;
       lineWins.push({
         line: li, symbol: finalSym, count: finalCount, win: round2(finalPay * lineBet * scale * (wm || 1)),
@@ -149,10 +150,11 @@ function evaluate(grid: Grid, bet: number, orbs: Orb[], scale: number, wildMult:
   });
   const scatterCount = grid.flat().filter((s) => s === "SCATTER").length;
   const sc = Math.min(scatterCount, 5);
-  const scatterWin = round2((SCATTER_PAY[sc] ?? 0) * bet * scale);
+  const multiplier = orbSum || 1;
+  // Orbes y wilds pegajosos se suman (no se multiplican entre sí) en cada línea; el scatter solo lleva orbes
+  const scatterWin = round2((SCATTER_PAY[sc] ?? 0) * bet * scale * multiplier);
   const raw = lineWins.reduce((s, l) => s + l.win, 0) + scatterWin;
-  const multiplier = orbs.length ? orbs.reduce((s, o) => s + o.value, 0) : 1;
-  return { grid, lineWins, scatterCount, scatterWin, win: round2(raw * multiplier), multiplier, freeSpinsAwarded: FREE_SPINS[sc] ?? 0, orbs };
+  return { grid, lineWins, scatterCount, scatterWin, win: round2(raw), multiplier, freeSpinsAwarded: FREE_SPINS[sc] ?? 0, orbs };
 }
 
 function spinGrid(): Grid {
